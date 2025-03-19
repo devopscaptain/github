@@ -11,7 +11,3 @@ repository:
   has_wiki: false
   squash_merge_commit_message: PR_BODY
   squash_merge_commit_title: PR_TITLE
-  name: devopscaptain1
-  organization: devopscaptain
-  # Create the repo if doesn't exist
-  force_create: true
