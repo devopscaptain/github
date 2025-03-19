@@ -1,0 +1,10 @@
+# This settings file can be used to create repo-level settings
+
+repository:
+  name: devopscaptain1
+  organization: devopscaptain
+  # Create the repo if doesn't exist
+  force_create: true
+
+  # Use a template when creating the rep
+# Every other property is the same as the org level settings and can be overridden here
