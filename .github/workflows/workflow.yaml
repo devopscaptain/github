@@ -44,6 +44,11 @@ jobs:
           echo "BRANCH=$BRANCH" >> $GITHUB_ENV
           echo "INCLUDE_README=$INCLUDE_README" >> $GITHUB_ENV
 
+      - name: Set Git Identity
+        run: |
+          git config --global user.name "github-actions"
+          git config --global user.email "github-actions@github.com"
+
       - name: Create Repository Structure
         run: |
           mkdir -p repos/${{ env.REPO_NAME }}
@@ -63,11 +68,9 @@ jobs:
       - name: Commit Changes
         run: |
           cd repos/${{ env.REPO_NAME }}
-          git config --global user.name "github-actions"
-          git config --global user.email "github-actions@github.com"
-
           git add .
           git commit -m "Add repository structure for ${{ env.REPO_NAME }}" || echo "No changes to commit"
+
 
 
       - name: Create Pull Request
