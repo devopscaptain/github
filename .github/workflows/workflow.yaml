@@ -44,26 +44,31 @@ jobs:
           echo "BRANCH=$BRANCH" >> $GITHUB_ENV
           echo "INCLUDE_README=$INCLUDE_README" >> $GITHUB_ENV
 
-
-
-
       - name: Create Repository Structure
         run: |
           mkdir -p repos/${{ env.REPO_NAME }}
           cd repos/${{ env.REPO_NAME }}
           git init -b ${{ env.BRANCH }}
 
+          # Ensure at least one file exists before committing
           if [[ "${{ env.INCLUDE_README }}" == "Yes" ]]; then
             echo "# ${{ env.REPO_NAME }}" > README.md
-            git add README.md
+          else
+            touch .gitkeep  # Create a placeholder file if README is not included
           fi
+
+          git add .
+          git commit -m "Initial commit for ${{ env.REPO_NAME }}"
 
       - name: Commit Changes
         run: |
+          cd repos/${{ env.REPO_NAME }}
           git config --global user.name "github-actions"
           git config --global user.email "github-actions@github.com"
+
           git add .
-          git commit -m "Add repository structure for ${{ env.REPO_NAME }}"
+          git commit -m "Add repository structure for ${{ env.REPO_NAME }}" || echo "No changes to commit"
+
 
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v6
