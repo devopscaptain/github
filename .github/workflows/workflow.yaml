@@ -40,6 +40,14 @@ jobs:
       #     echo "REPO_NAME=$REPO_NAME" >> $GITHUB_ENV
       #     echo "BRANCH=$BRANCH" >> $GITHUB_ENV
       #     echo "INCLUDE_README=$INCLUDE_README" >> $GITHUB_ENV
+      - name: Parse Issue Details
+        id: parse
+        run: |
+          ISSUE_BODY=$(jq -r '.issue.body' "$GITHUB_EVENT_PATH")
+
+          # Print the full issue body to debug formatting issues
+          echo "Full ISSUE_BODY content:"
+          echo "$ISSUE_BODY"
 
 
       - name: Parse Issue Details
@@ -47,10 +55,10 @@ jobs:
         run: |
           ISSUE_BODY=$(jq -r '.issue.body' "$GITHUB_EVENT_PATH")
 
-          # Extract values using awk, correctly capturing the next lines
-          REPO_NAME=$(echo "$ISSUE_BODY" | awk -F '\n' '/^### Repository Name/ {getline; print $0}' | xargs)
-          BRANCH=$(echo "$ISSUE_BODY" | awk -F '\n' '/^### Default Branch/ {getline; print $0}' | xargs)
-          INCLUDE_README=$(echo "$ISSUE_BODY" | awk -F '\n' '/^### Include README/ {getline; print $0}' | xargs)
+          # Extract values by locating the correct headers
+          REPO_NAME=$(echo "$ISSUE_BODY" | awk 'BEGIN{RS=""; FS="\n"} {for (i=1; i<=NF; i++) if ($i ~ /^### Repository Name/) print $(i+1)}' | xargs)
+          BRANCH=$(echo "$ISSUE_BODY" | awk 'BEGIN{RS=""; FS="\n"} {for (i=1; i<=NF; i++) if ($i ~ /^### Default Branch/) print $(i+1)}' | xargs)
+          INCLUDE_README=$(echo "$ISSUE_BODY" | awk 'BEGIN{RS=""; FS="\n"} {for (i=1; i<=NF; i++) if ($i ~ /^### Include README/) print $(i+1)}' | xargs)
 
           # Debugging Output
           echo "Extracted Repository Name: '$REPO_NAME'"
@@ -64,6 +72,7 @@ jobs:
           echo "REPO_NAME=$REPO_NAME" >> $GITHUB_ENV
           echo "BRANCH=$BRANCH" >> $GITHUB_ENV
           echo "INCLUDE_README=$INCLUDE_README" >> $GITHUB_ENV
+
 
       - name: Set Git Identity
         run: |
