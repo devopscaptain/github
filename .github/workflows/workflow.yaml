@@ -55,10 +55,14 @@ jobs:
         run: |
           ISSUE_BODY=$(jq -r '.issue.body' "$GITHUB_EVENT_PATH")
 
-          # Extract values by locating the correct headers
-          REPO_NAME=$(echo "$ISSUE_BODY" | awk 'BEGIN{RS=""; FS="\n"} {for (i=1; i<=NF; i++) if ($i ~ /^### Repository Name/) print $(i+1)}' | xargs)
-          BRANCH=$(echo "$ISSUE_BODY" | awk 'BEGIN{RS=""; FS="\n"} {for (i=1; i<=NF; i++) if ($i ~ /^### Default Branch/) print $(i+1)}' | xargs)
-          INCLUDE_README=$(echo "$ISSUE_BODY" | awk 'BEGIN{RS=""; FS="\n"} {for (i=1; i<=NF; i++) if ($i ~ /^### Include README/) print $(i+1)}' | xargs)
+          # Debug: Print the full issue body
+          echo "Full ISSUE_BODY content:"
+          echo "$ISSUE_BODY"
+
+          # Extract values using sed (handling multi-line issues)
+          REPO_NAME=$(echo "$ISSUE_BODY" | sed -n '/### Repository Name/{n;p}' | xargs)
+          BRANCH=$(echo "$ISSUE_BODY" | sed -n '/### Default Branch/{n;p}' | xargs)
+          INCLUDE_README=$(echo "$ISSUE_BODY" | sed -n '/### Include README/{n;p}' | xargs)
 
           # Debugging Output
           echo "Extracted Repository Name: '$REPO_NAME'"
