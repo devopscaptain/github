@@ -21,7 +21,14 @@ jobs:
       - name: Parse Issue Details
         id: parse
         run: |
+          # Print entire issue body for debugging
+          echo "Full ISSUE_BODY content:"
+          cat "$GITHUB_EVENT_PATH" | jq '.issue.body'
+          
           ISSUE_BODY=$(jq -r '.issue.body' "$GITHUB_EVENT_PATH")
+          
+          # Debug: Print extracted issue body
+          echo "Extracted ISSUE_BODY: $ISSUE_BODY"
 
           REPO_NAME=$(echo "$ISSUE_BODY" | awk -F ': ' '/Repository Name/ {print $2}')
           BRANCH=$(echo "$ISSUE_BODY" | awk -F ': ' '/Default Branch/ {print $2}')
