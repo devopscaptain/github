@@ -5,9 +5,6 @@ on:
   pull_request:
     types: [closed]
 
-permissions:
-  contents: read
-  repositories: write
 
 jobs:
   create_repo:
