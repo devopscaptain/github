@@ -83,4 +83,4 @@ jobs:
             - **Default Branch**: `${{ env.BRANCH }}`
             - **Include README**: `${{ env.INCLUDE_README }}`
           branch: "repo-request-${{ env.REPO_NAME }}"
-          reviewers: ${{ github.actor }}
+          #reviewers: ${{ github.actor }}
