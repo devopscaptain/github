@@ -41,7 +41,7 @@ jobs:
       #     echo "BRANCH=$BRANCH" >> $GITHUB_ENV
       #     echo "INCLUDE_README=$INCLUDE_README" >> $GITHUB_ENV
       - name: Parse Issue Details
-        id: parse
+        id: debug
         run: |
           ISSUE_BODY=$(jq -r '.issue.body' "$GITHUB_EVENT_PATH")
 
