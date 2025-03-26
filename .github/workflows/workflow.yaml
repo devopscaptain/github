@@ -1,0 +1,43 @@
+name: Process Repo Request
+
+on:
+  issues:
+    types: [opened]
+
+jobs:
+  create_repo_pr:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Parse Issue Details
+        id: parse
+        run: |
+          echo "REPO_NAME=$(jq -r '.repository.name' "$GITHUB_EVENT_PATH")" >> $GITHUB_ENV
+          echo "BRANCH=$(jq -r '.repository.branch' "$GITHUB_EVENT_PATH")" >> $GITHUB_ENV
+          echo "INCLUDE_README=$(jq -r '.repository.include_readme' "$GITHUB_EVENT_PATH")" >> $GITHUB_ENV
+
+      - name: Create Repository Structure
+        run: |
+          mkdir -p repos/${{ env.REPO_NAME }}
+          cd repos/${{ env.REPO_NAME }}
+          git init -b ${{ env.BRANCH }}
+          if [[ "${{ env.INCLUDE_README }}" == "Yes" ]]; then
+            echo "# ${{ env.REPO_NAME }}" > README.md
+          fi
+
+      - name: Commit Changes
+        run: |
+          git config --global user.name "github-actions"
+          git config --global user.email "github-actions@github.com"
+          git add .
+          git commit -m "Add repository structure for ${{ env.REPO_NAME }}"
+
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v6
+        with:
+          title: "Add new repository: ${{ env.REPO_NAME }}"
+          body: "This PR adds the requested repository: **${{ env.REPO_NAME }}**"
+          branch: "repo-request-${{ env.REPO_NAME }}"
+          reviewers: ${{ github.actor }}
