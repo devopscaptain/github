@@ -117,5 +117,5 @@ jobs:
             - **Name**: ${{ env.REPO_NAME }}
             - **Default Branch**: ${{ env.BRANCH }}
             - **Include README**: ${{ env.INCLUDE_README }}
-          branch: "create-${{ env.REPO_NAME }}-$(date +%s)"
+          branch: "create-${{ env.REPO_NAME }}"
           #reviewers: ${{ github.actor }}
