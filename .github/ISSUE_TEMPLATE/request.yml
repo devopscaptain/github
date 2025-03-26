@@ -1,0 +1,36 @@
+name: Repository Request
+about: Request a new GitHub repository
+
+title: "[Repo Request] <Your Repository Name>"
+labels: [repo-request]
+body:
+  - type: input
+    id: repo_name
+    attributes:
+      label: "Repository Name"
+      description: "Enter the name of the new repository."
+      placeholder: "my-awesome-repo"
+    validations:
+      required: true
+  
+  - type: dropdown
+    id: default_branch
+    attributes:
+      label: "Default Branch"
+      description: "Select the default branch for your repository."
+      options:
+        - main
+        - develop
+    validations:
+      required: true
+  
+  - type: dropdown
+    id: include_readme
+    attributes:
+      label: "Include README"
+      description: "Would you like to include a README file?"
+      options:
+        - Yes
+        - No
+    validations:
+      required: true
