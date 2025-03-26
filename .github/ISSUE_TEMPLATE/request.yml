@@ -1,6 +1,5 @@
-name: Repository Request
-about: Request a new GitHub repository
-
+name: "Repository Request"
+description: "Request a new GitHub repository"
 title: "[Repo Request] <Your Repository Name>"
 labels: [repo-request]
 body:
@@ -19,8 +18,8 @@ body:
       label: "Default Branch"
       description: "Select the default branch for your repository."
       options:
-        - main
-        - develop
+        - "main"
+        - "develop"
     validations:
       required: true
   
@@ -30,7 +29,7 @@ body:
       label: "Include README"
       description: "Would you like to include a README file?"
       options:
-        - Yes
-        - No
+        - "Yes"
+        - "No"
     validations:
       required: true
