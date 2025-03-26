@@ -54,25 +54,25 @@ jobs:
         id: parse
         run: |
           ISSUE_BODY=$(jq -r '.issue.body' "$GITHUB_EVENT_PATH")
-
+      
           # Debug: Print the full issue body
           echo "Full ISSUE_BODY content:"
           echo "$ISSUE_BODY"
-
-          # Extract values using sed (handling multi-line issues)
-          REPO_NAME=$(echo "$ISSUE_BODY" | sed -n '/### Repository Name/{n;p}' | xargs)
-          BRANCH=$(echo "$ISSUE_BODY" | sed -n '/### Default Branch/{n;p}' | xargs)
-          INCLUDE_README=$(echo "$ISSUE_BODY" | sed -n '/### Include README/{n;p}' | xargs)
-
+      
+          # Extract values by looking for the header and getting the next non-empty line
+          REPO_NAME=$(echo "$ISSUE_BODY" | awk -F'\n' '/^### Repository Name$/{getline; getline; print $0}' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+          BRANCH=$(echo "$ISSUE_BODY" | awk -F'\n' '/^### Default Branch$/{getline; getline; print $0}' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+          INCLUDE_README=$(echo "$ISSUE_BODY" | awk -F'\n' '/^### Include README$/{getline; getline; print $0}' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+      
           # Debugging Output
           echo "Extracted Repository Name: '$REPO_NAME'"
           echo "Extracted Branch: '$BRANCH'"
           echo "Extracted Include README: '$INCLUDE_README'"
-
+      
           # Ensure default values if missing
           if [ -z "$REPO_NAME" ]; then echo "Error: Repository Name is required"; exit 1; fi
           if [ -z "$BRANCH" ]; then BRANCH="main"; fi
-
+      
           echo "REPO_NAME=$REPO_NAME" >> $GITHUB_ENV
           echo "BRANCH=$BRANCH" >> $GITHUB_ENV
           echo "INCLUDE_README=$INCLUDE_README" >> $GITHUB_ENV
