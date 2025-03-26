@@ -22,15 +22,14 @@ jobs:
         id: parse
         run: |
           # Debug: Print the full issue body
-          echo "Full ISSUE_BODY content:"
-          cat "$GITHUB_EVENT_PATH" | jq '.issue.body'
-          
           ISSUE_BODY=$(jq -r '.issue.body' "$GITHUB_EVENT_PATH")
+          echo "Full ISSUE_BODY content:"
+          echo "$ISSUE_BODY"
 
-          # Extracting repository name, branch, and README selection
-          REPO_NAME=$(echo "$ISSUE_BODY" | sed -n 's/^### Repository Name\s*\n\([^#]*\)/\1/p' | xargs)
-          BRANCH=$(echo "$ISSUE_BODY" | sed -n 's/^### Default Branch\s*\n\([^#]*\)/\1/p' | xargs)
-          INCLUDE_README=$(echo "$ISSUE_BODY" | sed -n 's/^### Include README\s*\n\([^#]*\)/\1/p' | xargs)
+          # Extract values using awk
+          REPO_NAME=$(echo "$ISSUE_BODY" | awk -v RS="" '/^### Repository Name/ {print $NF}')
+          BRANCH=$(echo "$ISSUE_BODY" | awk -v RS="" '/^### Default Branch/ {print $NF}')
+          INCLUDE_README=$(echo "$ISSUE_BODY" | awk -v RS="" '/^### Include README/ {print $NF}')
 
           # Debugging Output
           echo "Extracted Repository Name: '$REPO_NAME'"
@@ -44,6 +43,7 @@ jobs:
           echo "REPO_NAME=$REPO_NAME" >> $GITHUB_ENV
           echo "BRANCH=$BRANCH" >> $GITHUB_ENV
           echo "INCLUDE_README=$INCLUDE_README" >> $GITHUB_ENV
+
 
 
 
