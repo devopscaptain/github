@@ -76,6 +76,7 @@ jobs:
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v6
         with:
+          token: ${{ secrets.GH_PAT }}
           title: "Add new repository: ${{ env.REPO_NAME }}"
           body: |
             This PR adds the requested repository: **${{ env.REPO_NAME }}**.
