@@ -111,11 +111,11 @@ jobs:
         uses: peter-evans/create-pull-request@v6
         with:
           token: ${{ secrets.GH_PAT }}
-          title: "Add new repository: ${{ env.REPO_NAME }}"
+          title: "Create new repository: ${{ env.REPO_NAME }}"
           body: |
-            This PR Requested to create repo with following details
-            - **repository**: **${{ env.REPO_NAME }}**.
-            - **Default Branch**: `${{ env.BRANCH }}`
-            - **Include README**: `${{ env.INCLUDE_README }}`
-          branch: "repo-request-${{ env.REPO_NAME }}"
+            Repository Details:
+            - **Name**: ${{ env.REPO_NAME }}
+            - **Default Branch**: ${{ env.BRANCH }}
+            - **Include README**: ${{ env.INCLUDE_README }}
+          branch: "create-${{ env.REPO_NAME }}-$(date +%s)"
           #reviewers: ${{ github.actor }}
