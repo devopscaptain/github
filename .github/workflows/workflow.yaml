@@ -1,30 +1,48 @@
-name: Process Repo Request
+name: Process Repository Request
 
 on:
   issues:
     types: [opened]
 
+permissions:
+  contents: write
+  pull-requests: write
+
 jobs:
   create_repo_pr:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Parse Issue Details
         id: parse
         run: |
-          echo "REPO_NAME=$(jq -r '.repository.name' "$GITHUB_EVENT_PATH")" >> $GITHUB_ENV
-          echo "BRANCH=$(jq -r '.repository.branch' "$GITHUB_EVENT_PATH")" >> $GITHUB_ENV
-          echo "INCLUDE_README=$(jq -r '.repository.include_readme' "$GITHUB_EVENT_PATH")" >> $GITHUB_ENV
+          ISSUE_BODY=$(jq -r '.issue.body' "$GITHUB_EVENT_PATH")
+          REPO_NAME=$(echo "$ISSUE_BODY" | grep -i "Repository Name:" | cut -d ':' -f2 | xargs)
+          BRANCH=$(echo "$ISSUE_BODY" | grep -i "Default Branch:" | cut -d ':' -f2 | xargs)
+          INCLUDE_README=$(echo "$ISSUE_BODY" | grep -i "Include README:" | cut -d ':' -f2 | xargs)
+
+          # Ensure default values if missing
+          if [ -z "$REPO_NAME" ]; then echo "Error: Repository Name is required"; exit 1; fi
+          if [ -z "$BRANCH" ]; then BRANCH="main"; fi
+
+          echo "REPO_NAME=$REPO_NAME" >> $GITHUB_ENV
+          echo "BRANCH=$BRANCH" >> $GITHUB_ENV
+          echo "INCLUDE_README=$INCLUDE_README" >> $GITHUB_ENV
 
       - name: Create Repository Structure
         run: |
           mkdir -p repos/${{ env.REPO_NAME }}
           cd repos/${{ env.REPO_NAME }}
           git init -b ${{ env.BRANCH }}
+
           if [[ "${{ env.INCLUDE_README }}" == "Yes" ]]; then
             echo "# ${{ env.REPO_NAME }}" > README.md
+            git add README.md
           fi
 
       - name: Commit Changes
@@ -38,6 +56,9 @@ jobs:
         uses: peter-evans/create-pull-request@v6
         with:
           title: "Add new repository: ${{ env.REPO_NAME }}"
-          body: "This PR adds the requested repository: **${{ env.REPO_NAME }}**"
+          body: |
+            This PR adds the requested repository: **${{ env.REPO_NAME }}**.
+            - **Default Branch**: `${{ env.BRANCH }}`
+            - **Include README**: `${{ env.INCLUDE_README }}`
           branch: "repo-request-${{ env.REPO_NAME }}"
           reviewers: ${{ github.actor }}
