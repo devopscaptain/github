@@ -1,22 +1,20 @@
 name: "Repository Request"
 description: "Request a new GitHub repository with our teddy bear helper!"
 title: "[Repo Request] Your Repository Name"
-labels: [repo-request]
+labels: ["repo-request"]
 body:
   - type: markdown
     attributes:
       value: |
         <div align="center">
-          <img src="https://raw.githubusercontent.com/twitter/twemoji/master/assets/svg/1f9f8.svg" alt="Teddy Bear Logo" width="100">
           <h1>🧸 New Repository Request</h1>
           <p>Let our teddy bear help you create a new repository!</p>
-          <img src="https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExcDlwY3F0d2Z1dWJ0N3B1dG5xZ2V6eGJ5Y2R6d2NtYzB3dGZ6biZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/3o7TKMt1VgmVgKzos8/giphy.gif" width="200">
         </div>
 
   - type: input
     id: repo_name
     attributes:
-      label: "🧸 Repository Name"
+      label: "Repository Name"
       description: "What should we name your new repository?"
       placeholder: "my-awesome-project"
     validations:
@@ -25,54 +23,55 @@ body:
   - type: dropdown
     id: default_branch
     attributes:
-      label: "🌿 Default Branch"
+      label: "Default Branch"
       description: "Select the default branch name"
       options:
         - "main"
         - "develop"
         - "trunk"
-      value: "main"
     validations:
       required: true
 
   - type: dropdown
     id: include_readme
     attributes:
-      label: "📝 Include README?"
+      label: "Include README?"
       description: "Should we include a starter README file?"
       options:
         - "Yes"
         - "No"
-      value: "Yes"
     validations:
       required: true
 
   - type: textarea
     id: description
     attributes:
-      label: "📋 Description"
+      label: "Description"
       description: "Tell us about your project"
       placeholder: "This repository will contain..."
-      render: markdown
+    validations:
+      required: false
 
   - type: checkboxes
     id: options
     attributes:
-      label: "✨ Extra Features"
+      label: "Extra Features"
       description: "Select any additional options"
       options:
         - label: "Add .gitignore file"
+          required: false
         - label: "Add MIT License"
+          required: false
         - label: "Enable GitHub Discussions"
+          required: false
         - label: "Enable GitHub Projects"
+          required: false
 
   - type: markdown
     attributes:
       value: |
-        <div align="center" style="margin-top:20px;padding:15px;background:#f6f8fa;border-radius:8px;border:1px dashed #d0d7de">
-          <h3>🐻 What happens next?</h3>
-          <p>1. Our teddy bot will process your request</p>
-          <p>2. You'll receive a notification when ready</p>
-          <p>3. Your new repo will appear in our organization</p>
-          <p>Need help? <a href="mailto:support@example.com">Contact our bears</a></p>
-        </div>
+        **🐻 What happens next?**  
+        1. Our teddy bot will process your request  
+        2. You'll receive a notification when ready  
+        3. Your new repo will appear in our organization  
+        Need help? Contact [our bears](mailto:support@example.com)
