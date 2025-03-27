@@ -1,77 +1,72 @@
-name: "Repository Request"
-description: "Request a new GitHub repository with our teddy bear helper!"
-title: "[Repo Request] Your Repository Name"
+name: "🧸 Repository Request"
+description: "Request a new GitHub repository"
+title: "[🐻 Repo Request] Your Repository Name"
 labels: ["repo-request"]
 body:
   - type: markdown
     attributes:
       value: |
-        <div align="center">
-          <h1>🧸 New Repository Request</h1>
-          <p>Let our teddy bear help you create a new repository!</p>
-        </div>
+        ### 🎀 𝓝𝓮𝔀 𝓡𝓮𝓹𝓸𝓼𝓲𝓽𝓸𝓻𝔂 𝓡𝓮𝓺𝓾𝓮𝓼𝓽 🎀
+        ░▒▓█►───────────────────◄█▓▒░
+        *"Let our teddy bears build your repo!"* 🧸📦
 
   - type: input
     id: repo_name
     attributes:
-      label: "Repository Name"
-      description: "What should we name your new repository?"
+      label: "🌈 Repository Name"
+      description: "▷ What should we name your new repository? ◁"
       placeholder: "my-awesome-project"
-    validations:
-      required: true
 
   - type: dropdown
     id: default_branch
     attributes:
-      label: "Default Branch"
-      description: "Select the default branch name"
+      label: "🌿 Default Branch"
+      description: "▷ Select your starting branch ◁"
       options:
-        - "main"
-        - "develop"
-        - "trunk"
-    validations:
-      required: true
+        - "main 🏠"
+        - "develop 🌱"
+        - "trunk 🌳"
 
   - type: dropdown
     id: include_readme
     attributes:
-      label: "Include README?"
-      description: "Should we include a starter README file?"
+      label: "📝 Include README?"
+      description: "▷ Starter documentation? ◁"
       options:
-        - "Yes"
-        - "No"
-    validations:
-      required: true
-
-  - type: textarea
-    id: description
-    attributes:
-      label: "Description"
-      description: "Tell us about your project"
-      placeholder: "This repository will contain..."
-    validations:
-      required: false
-
-  - type: checkboxes
-    id: options
-    attributes:
-      label: "Extra Features"
-      description: "Select any additional options"
-      options:
-        - label: "Add .gitignore file"
-          required: false
-        - label: "Add MIT License"
-          required: false
-        - label: "Enable GitHub Discussions"
-          required: false
-        - label: "Enable GitHub Projects"
-          required: false
+        - "Yes ✅"
+        - "No ❌"
 
   - type: markdown
     attributes:
       value: |
-        **🐻 What happens next?**  
-        1. Our teddy bot will process your request  
-        2. You'll receive a notification when ready  
-        3. Your new repo will appear in our organization  
-        Need help? Contact [our bears](mailto:support@example.com)
+        ```diff
+        + 🧸 Pro Tip: Good READMEs help others understand your project!
+        ```
+
+  - type: textarea
+    id: description
+    attributes:
+      label: "📖 Description"
+      description: "▷ Tell us about your project ◁"
+      placeholder: "This repository will contain..."
+
+  - type: checkboxes
+    id: options
+    attributes:
+      label: "✨ Extra Features"
+      description: "▷ Select additional options ◁"
+      options:
+        - label: "Add .gitignore file 📋"
+        - label: "Add MIT License ⚖️"
+        - label: "Enable GitHub Discussions 💬"
+        - label: "Enable GitHub Projects 📊"
+
+  - type: markdown
+    attributes:
+      value: |
+        ░▒▓█►───────────────────◄█▓▒░
+        ### 🐾 Next Steps
+        1. 🧸 Our bears will process your request
+        2. 📩 You'll receive a notification
+        3. 🎉 Your repo will be ready to use!
+        ✨ *Need help?* ✨ → contact@example.com
