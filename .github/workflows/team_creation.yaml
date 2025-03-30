@@ -1,0 +1,72 @@
+name: Create Team After Merge
+on:
+  pull_request:
+    types: [closed]
+    labels: ['team-creation']
+
+jobs:
+  create_team:
+    if: |
+      github.event.pull_request.merged == true &&
+      contains(github.event.pull_request.labels.*.name, 'team-creation')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Extract Team Details
+        id: extract
+        run: |
+          PR_BODY="${{ github.event.pull_request.body }}"
+          TEAM_NAME=$(echo "$PR_BODY" | grep -oP '(?<=- Team Name: ).*')
+          PRIVACY=$(echo "$PR_BODY" | grep -oP '(?<=- Team Visibility: ).*' | tr '[:upper:]' '[:lower:]')
+          DESCRIPTION=$(echo "$PR_BODY" | grep -oP '(?<=- Purpose: ).*')
+          MAINTAINERS=$(echo "$PR_BODY" | grep -oP '(?<=- Team Maintainers \(GitHub Usernames\): ).*')
+
+          echo "TEAM_NAME=$TEAM_NAME" >> $GITHUB_ENV
+          echo "PRIVACY=$PRIVACY" >> $GITHUB_ENV
+          echo "DESCRIPTION='$DESCRIPTION'" >> $GITHUB_ENV
+          echo "MAINTAINERS=$MAINTAINERS" >> $GITHUB_ENV
+        
+      - name: Create Team
+        uses: actions/github-script@v6
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        with:
+          script: |
+            try {
+              // Create team
+              const { data: team } = await github.rest.teams.create({
+                org: context.repo.owner,
+                name: process.env.TEAM_NAME.replace(/ /g, '-').toLowerCase(),
+                description: process.env.DESCRIPTION,
+                privacy: process.env.PRIVACY,
+              });
+
+              // Add maintainers
+              const maintainers = process.env.MAINTAINERS.split(',');
+              for (const username of maintainers) {
+                await github.rest.teams.addOrUpdateMembershipForUserInOrg({
+                  org: context.repo.owner,
+                  team_slug: team.slug,
+                  username: username.trim(),
+                  role: 'maintainer',
+                });
+              }
+
+              // Post success comment
+              await github.rest.issues.createComment({
+                issue_number: ${{ github.event.pull_request.number }},
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: `✅ Team **${team.name}** created!\n\n` +
+                      `- **Visibility**: ${process.env.PRIVACY}\n` +
+                      `- **Maintainers**: ${process.env.MAINTAINERS}\n` +
+                      `- **Description**: ${process.env.DESCRIPTION}`
+              });
+            } catch (error) {
+              core.setFailed(`Team creation failed: ${error}`);
+              await github.rest.issues.createComment({
+                issue_number: ${{ github.event.pull_request.number }},
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: `❌ Team creation failed: ${error.message}`
+              });
+            }
