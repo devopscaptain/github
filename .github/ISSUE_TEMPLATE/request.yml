@@ -11,6 +11,7 @@ body:
       placeholder: "my-awesome-repo"
     validations:
       required: true
+  
   - type: dropdown
     id: default_branch
     attributes:
@@ -21,6 +22,7 @@ body:
         - "develop"
     validations:
       required: true
+  
   - type: dropdown
     id: include_readme
     attributes:
