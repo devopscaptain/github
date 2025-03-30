@@ -1,0 +1,32 @@
+name: Process Team Request
+on:
+  issues:
+    types: [opened, edited]
+
+jobs:
+  create_pr:
+    # Double validation: Label + Template
+    if: |
+      contains(github.event.issue.labels.*.name, 'team-request') &&
+      github.event.issue.title.startswith('[Team]')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify Team Request
+        id: verify
+        run: |
+          if [[ ! "${{ github.event.issue.body }}" =~ '- Team Name: TEAM-' ]]; then
+            echo "::error::Not a valid team request issue"
+            exit 1
+          fi
+
+      - name: Create PR
+        uses: peter-evans/create-pull-request@v5
+        with:
+          title: "Team Request: ${{ github.event.issue.title }}"
+          body: |
+            **Automated from #${{ github.event.issue.number }}**
+            ```yaml
+            ${{ github.event.issue.body }}
+            ```
+          branch: "team-request-${{ github.event.issue.number }}"
+          labels: "team-creation"
