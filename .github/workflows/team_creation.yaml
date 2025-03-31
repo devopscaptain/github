@@ -11,8 +11,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      members: write
-      organization: write
     
     steps:
       - name: Checkout Repository
@@ -23,21 +21,19 @@ jobs:
       - name: Extract Team Details
         id: extract
         run: |
-          # Get PR body and team name file
           PR_BODY="${{ github.event.pull_request.body }}"
           TEAM_NAME=$(cat team-name.txt)
-          
-          # Extract other fields with defaults
-          PRIVACY=$(echo "$PR_BODY" | grep -oP '(?<=Visibility: ).*' | head -1 | tr '[:upper:]' '[:lower:]') || PRIVACY="secret"
-          DESCRIPTION=$(echo "$PR_BODY" | grep -oP '(?<=Purpose: ).*' | head -1) || DESCRIPTION="Team created via automation"
-          MAINTAINERS=$(echo "$PR_BODY" | grep -oP '(?<=Maintainers: ).*' | head -1) || MAINTAINERS=""
+
+          PRIVACY=$(echo "$PR_BODY" | sed -n 's/^.*Visibility:\s*\(\w*\).*$/\1/p' | tr '[:upper:]' '[:lower:]')
+          DESCRIPTION=$(echo "$PR_BODY" | sed -n 's/^.*Purpose:\s*\(.*\).*$/\1/p')
+          MAINTAINERS=$(echo "$PR_BODY" | sed -n 's/^.*Maintainers:\s*\(.*\).*$/\1/p')
 
           echo "TEAM_NAME=$TEAM_NAME" >> $GITHUB_ENV
           echo "PRIVACY=${PRIVACY:-secret}" >> $GITHUB_ENV
           echo "DESCRIPTION='${DESCRIPTION:-Team created via automation}'" >> $GITHUB_ENV
           echo "MAINTAINERS=${MAINTAINERS:-none}" >> $GITHUB_ENV
 
-          # Debug output
+          # Debugging output
           echo "Extracted values:"
           echo "Team: $TEAM_NAME"
           echo "Privacy: $PRIVACY"
@@ -51,15 +47,16 @@ jobs:
         with:
           script: |
             try {
-              // Create team
+              const teamSlug = process.env.TEAM_NAME.toLowerCase().replace(/\s+/g, '-');
+
               const { data: team } = await github.rest.teams.create({
                 org: context.repo.owner,
                 name: process.env.TEAM_NAME,
+                slug: teamSlug,
                 description: process.env.DESCRIPTION,
                 privacy: process.env.PRIVACY,
               });
 
-              // Add maintainers if specified
               if (process.env.MAINTAINERS && process.env.MAINTAINERS !== 'none') {
                 const maintainers = process.env.MAINTAINERS.split(',');
                 for (const user of maintainers) {
@@ -72,7 +69,6 @@ jobs:
                 }
               }
 
-              // Post success comment
               await github.rest.issues.createComment({
                 issue_number: ${{ github.event.pull_request.number }},
                 owner: context.repo.owner,
