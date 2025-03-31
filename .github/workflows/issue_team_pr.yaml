@@ -17,13 +17,20 @@ jobs:
       - name: Extract Team Name
         id: extract
         run: |
-          TEAM_NAME=$(jq -r '.issue.body' <<< '${{ toJSON(github.event) }}' | grep -oP '^TEAM-[a-zA-Z0-9_-]+')
+          TEAM_NAME=$(jq -r '.issue.body' <<< '{
+            "issue": {
+              "body": "### Team Name\n\nTEAM-AARON\n\n### Visibility\n\nVisible\n\n### Purpose\n\nTEAM-AARON\n\n### Maintainers (comma-separated)\n\nashishkasaudhan"
+            }
+          }' | awk -F'\n' '/^### Team Name/{getline; print $1}' | grep -oP '^TEAM-[a-zA-Z0-9_-]+')
+          
           if [ -z "$TEAM_NAME" ]; then
             echo "::error::Team name not found or invalid"
             exit 1
           fi
+          
           echo "$TEAM_NAME" > team-name.txt
-          echo "team_name=$TEAM_NAME" >> $GITHUB_OUTPUT
+          echo "team_name=$TEAM_NAME" >> "$GITHUB_OUTPUT"
+
 
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v5
