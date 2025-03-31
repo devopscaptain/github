@@ -3,19 +3,25 @@ on:
   issues:
     types: [opened, edited]
 
+permissions:
+  contents: write
+  pull-requests: write
+  issues: read
+
 jobs:
   create_pr:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      pull-requests: write
-      issues: read
-
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Git Config
+        run: |
+          git config --global user.name "github-actions"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
       - name: Validate Issue
         id: validate
@@ -25,15 +31,35 @@ jobs:
             echo "valid=false" >> $GITHUB_OUTPUT
             exit 0
           fi
-          # Additional validation...
+          
+          if [[ ! "${{ github.event.issue.title }}" =~ ^'[Team]' ]]; then
+            echo "::error::Title must start with '[Team]'"
+            echo "valid=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
 
-      - name: Create PR
+          echo "valid=true" >> $GITHUB_OUTPUT
+
+      - name: Create PR Branch
         if: steps.validate.outputs.valid == 'true'
+        run: |
+          git checkout -b "team-request/${{ github.event.issue.number }}"
+          # Create empty commit to establish branch
+          git commit --allow-empty -m "Initial commit for team request"
+
+      - name: Create Pull Request
         uses: peter-evans/create-pull-request@v5
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           commit-message: "Add team request for ${{ github.event.issue.title }}"
           title: "Team Request: ${{ github.event.issue.title }}"
-          body: "Automated from issue #${{ github.event.issue.number }}"
+          body: |
+            ### Team Creation Request
+            **From Issue #${{ github.event.issue.number }}**
+            
+            ```yaml
+            ${{ github.event.issue.body }}
+            ```
           branch: "team-request/${{ github.event.issue.number }}"
           labels: "team-creation"
+          base: "main"  # Explicitly set your default branch
