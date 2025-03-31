@@ -1,54 +1,75 @@
-name: Create Team After Merge
+name: Create Team
 on:
   pull_request:
     types: [closed]
-    labels: ['team-creation']
+    paths:
+      - 'team-name.txt'
 
 jobs:
   create_team:
-    if: |
-      github.event.pull_request.merged == true &&
-      contains(github.event.pull_request.labels.*.name, 'team-creation')
+    if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      members: write
+      organization: write
+    
     steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
       - name: Extract Team Details
         id: extract
         run: |
+          # Get PR body and team name file
           PR_BODY="${{ github.event.pull_request.body }}"
-          TEAM_NAME=$(echo "$PR_BODY" | grep -oP '(?<=- Team Name: ).*')
-          PRIVACY=$(echo "$PR_BODY" | grep -oP '(?<=- Team Visibility: ).*' | tr '[:upper:]' '[:lower:]')
-          DESCRIPTION=$(echo "$PR_BODY" | grep -oP '(?<=- Purpose: ).*')
-          MAINTAINERS=$(echo "$PR_BODY" | grep -oP '(?<=- Team Maintainers \(GitHub Usernames\): ).*')
+          TEAM_NAME=$(cat team-name.txt)
+          
+          # Extract other fields with defaults
+          PRIVACY=$(echo "$PR_BODY" | grep -oP '(?<=Visibility: ).*' | head -1 | tr '[:upper:]' '[:lower:]') || PRIVACY="secret"
+          DESCRIPTION=$(echo "$PR_BODY" | grep -oP '(?<=Purpose: ).*' | head -1) || DESCRIPTION="Team created via automation"
+          MAINTAINERS=$(echo "$PR_BODY" | grep -oP '(?<=Maintainers: ).*' | head -1) || MAINTAINERS=""
 
           echo "TEAM_NAME=$TEAM_NAME" >> $GITHUB_ENV
-          echo "PRIVACY=$PRIVACY" >> $GITHUB_ENV
-          echo "DESCRIPTION='$DESCRIPTION'" >> $GITHUB_ENV
-          echo "MAINTAINERS=$MAINTAINERS" >> $GITHUB_ENV
-        
-      - name: Create Team
+          echo "PRIVACY=${PRIVACY:-secret}" >> $GITHUB_ENV
+          echo "DESCRIPTION='${DESCRIPTION:-Team created via automation}'" >> $GITHUB_ENV
+          echo "MAINTAINERS=${MAINTAINERS:-none}" >> $GITHUB_ENV
+
+          # Debug output
+          echo "Extracted values:"
+          echo "Team: $TEAM_NAME"
+          echo "Privacy: $PRIVACY"
+          echo "Description: $DESCRIPTION"
+          echo "Maintainers: $MAINTAINERS"
+
+      - name: Create GitHub Team
         uses: actions/github-script@v6
         env:
-          GH_TOKEN: ${{ secrets.GH_PAT }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           script: |
             try {
               // Create team
               const { data: team } = await github.rest.teams.create({
                 org: context.repo.owner,
-                name: process.env.TEAM_NAME.replace(/ /g, '-').toLowerCase(),
+                name: process.env.TEAM_NAME,
                 description: process.env.DESCRIPTION,
                 privacy: process.env.PRIVACY,
               });
 
-              // Add maintainers
-              const maintainers = process.env.MAINTAINERS.split(',');
-              for (const username of maintainers) {
-                await github.rest.teams.addOrUpdateMembershipForUserInOrg({
-                  org: context.repo.owner,
-                  team_slug: team.slug,
-                  username: username.trim(),
-                  role: 'maintainer',
-                });
+              // Add maintainers if specified
+              if (process.env.MAINTAINERS && process.env.MAINTAINERS !== 'none') {
+                const maintainers = process.env.MAINTAINERS.split(',');
+                for (const user of maintainers) {
+                  await github.rest.teams.addOrUpdateMembershipForUserInOrg({
+                    org: context.repo.owner,
+                    team_slug: team.slug,
+                    username: user.trim(),
+                    role: 'maintainer'
+                  });
+                }
               }
 
               // Post success comment
@@ -58,8 +79,9 @@ jobs:
                 repo: context.repo.repo,
                 body: `✅ Team **${team.name}** created!\n\n` +
                       `- **Visibility**: ${process.env.PRIVACY}\n` +
-                      `- **Maintainers**: ${process.env.MAINTAINERS}\n` +
-                      `- **Description**: ${process.env.DESCRIPTION}`
+                      `- **Description**: ${process.env.DESCRIPTION}\n` +
+                      (process.env.MAINTAINERS !== 'none' ? 
+                       `- **Maintainers**: ${process.env.MAINTAINERS}` : '')
               });
             } catch (error) {
               core.setFailed(`Team creation failed: ${error}`);
@@ -67,6 +89,6 @@ jobs:
                 issue_number: ${{ github.event.pull_request.number }},
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                body: `❌ Team creation failed: ${error.message}`
+                body: `❌ Failed to create team: ${error.message}`
               });
             }
