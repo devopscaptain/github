@@ -28,7 +28,7 @@ jobs:
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v5
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.GH_PAT }}
           commit-message: "Add team: ${{ steps.extract.outputs.team_name }}"
           title: "Create team: ${{ steps.extract.outputs.team_name }}"
           body: |
