@@ -5,26 +5,39 @@ on:
 
 jobs:
   create_pr:
-    # Double validation: Label + Title pattern
-    if: |
-      contains(github.event.issue.labels.*.name, 'team-request') &&
-      startsWith(github.event.issue.title, '[Team]')
     runs-on: ubuntu-latest
+    # Debug why conditions might fail
+    env:
+      ISSUE_TITLE: ${{ github.event.issue.title }}
+      ISSUE_LABELS: ${{ toJSON(github.event.issue.labels) }}
+    
     steps:
-      - name: Verify Team Request
-        id: verify
+      - name: Debug Inputs
         run: |
-          if [[ ! "${{ github.event.issue.body }}" =~ '- Team Name: TEAM-' ]]; then
-            echo "::error::Not a valid team request issue"
-            exit 1
+          echo "Title: $ISSUE_TITLE"
+          echo "Labels: $ISSUE_LABELS"
+          echo "Body: ${{ github.event.issue.body }}"
+
+      # Simplified condition with explicit checks
+      - name: Check if Team Request
+        id: check_team
+        run: |
+          if [[ "$ISSUE_TITLE" =~ ^\[Team\] ]] && 
+             [[ "$ISSUE_LABELS" == *'"name":"team-request"'* ]] &&
+             [[ "${{ github.event.issue.body }}" == *'- Team Name: TEAM-'* ]]; then
+            echo "is_team_request=true" >> $GITHUB_OUTPUT
+          else
+            echo "is_team_request=false" >> $GITHUB_OUTPUT
+            echo "::warning::Not a valid team request"
           fi
 
       - name: Create PR
+        if: steps.check_team.outputs.is_team_request == 'true'
         uses: peter-evans/create-pull-request@v5
         with:
           title: "Team Request: ${{ github.event.issue.title }}"
           body: |
-            **Automated from #${{ github.event.issue.number }}**
+            **From Issue #${{ github.event.issue.number }}**
             ```yaml
             ${{ github.event.issue.body }}
             ```
