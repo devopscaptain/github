@@ -5,10 +5,10 @@ on:
 
 jobs:
   create_pr:
-    # Double validation: Label + Template
+    # Double validation: Label + Title pattern
     if: |
       contains(github.event.issue.labels.*.name, 'team-request') &&
-      github.event.issue.title.startswith('[Team]')
+      startsWith(github.event.issue.title, '[Team]')
     runs-on: ubuntu-latest
     steps:
       - name: Verify Team Request
