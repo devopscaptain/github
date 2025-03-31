@@ -1,3 +1,4 @@
+---
 name: Create Team PR
 on:
   issues:
@@ -17,7 +18,7 @@ jobs:
       - name: Extract Team Name
         id: extract
         run: |
-          TEAM_NAME=$(echo "${{ github.event.issue.body }}" | grep -oP '^TEAM-[a-zA-Z0-9_-]+' | head -1)
+          TEAM_NAME=$(jq -r '.issue.body' <<< '${{ toJSON(github.event) }}' | grep -oP '^TEAM-[a-zA-Z0-9_-]+')
           if [ -z "$TEAM_NAME" ]; then
             echo "::error::Team name not found or invalid"
             exit 1
