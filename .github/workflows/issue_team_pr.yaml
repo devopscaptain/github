@@ -1,4 +1,4 @@
-name: Process Team Request
+name: Create Team PR
 on:
   issues:
     types: [opened, edited]
@@ -6,40 +6,37 @@ on:
 jobs:
   create_pr:
     runs-on: ubuntu-latest
-    # Debug why conditions might fail
-    env:
-      ISSUE_TITLE: ${{ github.event.issue.title }}
-      ISSUE_LABELS: ${{ toJSON(github.event.issue.labels) }}
-    
     steps:
-      - name: Debug Inputs
+      - name: Validate Issue
+        id: validate
         run: |
-          echo "Title: $ISSUE_TITLE"
-          echo "Labels: $ISSUE_LABELS"
-          echo "Body: ${{ github.event.issue.body }}"
-
-      # Simplified condition with explicit checks
-      - name: Check if Team Request
-        id: check_team
-        run: |
-          if [[ "$ISSUE_TITLE" =~ ^\[Team\] ]] && 
-             [[ "$ISSUE_LABELS" == *'"name":"team-request"'* ]] &&
-             [[ "${{ github.event.issue.body }}" == *'- Team Name: TEAM-'* ]]; then
-            echo "is_team_request=true" >> $GITHUB_OUTPUT
-          else
-            echo "is_team_request=false" >> $GITHUB_OUTPUT
-            echo "::warning::Not a valid team request"
+          # Check label
+          if ! echo '${{ toJSON(github.event.issue.labels) }}' | grep -q 'team-request'; then
+            echo "::error::Missing team-request label"
+            echo "valid=false" >> $GITHUB_OUTPUT
+            exit 0
           fi
 
+          # Check title format
+          if [[ ! "${{ github.event.issue.title }}" =~ ^'[Team] TEAM-' ]]; then
+            echo "::error::Title must be '[Team] TEAM-Name'"
+            echo "valid=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          echo "valid=true" >> $GITHUB_OUTPUT
+
       - name: Create PR
-        if: steps.check_team.outputs.is_team_request == 'true'
+        if: steps.validate.outputs.valid == 'true'
         uses: peter-evans/create-pull-request@v5
         with:
           title: "Team Request: ${{ github.event.issue.title }}"
           body: |
+            ### Team Creation Request
             **From Issue #${{ github.event.issue.number }}**
+            
             ```yaml
             ${{ github.event.issue.body }}
             ```
-          branch: "team-request-${{ github.event.issue.number }}"
+          branch: "team-request/${{ github.event.issue.number }}"
           labels: "team-creation"
