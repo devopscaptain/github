@@ -1,28 +1,20 @@
-name: "Team Request"
-description: "Request a new GitHub Team via PR"
-title: "[Team Request] TEAM-Name"
-labels: [team-request]
+name: Team Request
+description: Request a new GitHub team
+title: "[Team] TEAM-Name"
+labels: ["team-request"]
 body:
-  - type: markdown
-    attributes:
-      value: |
-        **Instructions:**
-        1. Fill this form
-        2. A PR will be created automatically
-        3. After approval, the team will be created
-
   - type: input
     id: team_name
     attributes:
       label: "Team Name"
-      description: "Must start with 'TEAM-' (5-25 chars)"
-      placeholder: "TEAM-example"
+      description: "Must start with 'TEAM-' and be 5-25 characters"
+      placeholder: "TEAM-backend"
     validations:
       required: true
       pattern: "^TEAM-[a-zA-Z0-9_-]{3,20}$"
-
+  
   - type: dropdown
-    id: privacy
+    id: visibility
     attributes:
       label: "Visibility"
       options: ["Visible", "Secret"]
@@ -30,19 +22,17 @@ body:
       required: true
 
   - type: textarea
-    id: description
+    id: purpose
     attributes:
       label: "Purpose"
-      description: "What this team will manage"
     validations:
       required: true
 
   - type: input
     id: maintainers
     attributes:
-      label: "Maintainers"
-      description: "Comma-separated GitHub usernames"
+      label: "Maintainers (comma-separated)"
       placeholder: "user1,user2"
     validations:
       required: true
-      pattern: "^[a-zA-Z0-9_-]+(,[a-zA-Z0-9_-]+)*$"
+      pattern: "^[a-z0-9_-]+(,[a-z0-9_-]+)*$"
