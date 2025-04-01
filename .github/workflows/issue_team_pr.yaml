@@ -19,23 +19,26 @@ jobs:
         id: extract
         run: |
           # Extract issue body from GitHub event
-          ISSUE_BODY=$'${{ github.event.issue.body }}'
+          ISSUE_BODY=$(echo '${{ toJSON(github.event.issue.body) }}' | jq -r .)
           
           # Debugging: Print the issue body
           echo "Issue Body:"
           echo "$ISSUE_BODY"
           
-          # Extract team name using the section pattern
-          TEAM_NAME=$(echo "$ISSUE_BODY" | awk -F': ' '/### Team Name/{getline; print $0}' | head -1 | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+          # Extract team name - handles both form and markdown formats
+          TEAM_NAME=$(echo "$ISSUE_BODY" | awk 'BEGIN {RS=""; FS="\n"} /### Team Name/ {getline; getline; print $0}' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
           
           # Debugging: Print extracted team name
           echo "Extracted Team Name: '$TEAM_NAME'"
           
-          # Ensure it matches TEAM- pattern
-          if [[ ! "$TEAM_NAME" =~ ^TEAM-[a-zA-Z0-9_-]+$ ]]; then
+          # Ensure it matches TEAM- pattern (case-insensitive)
+          if [[ ! "$TEAM_NAME" =~ ^[Tt][Ee][Aa][Mm]-[a-zA-Z0-9_-]+$ ]]; then
             echo "::error::Team name not found or invalid: '$TEAM_NAME'"
             exit 1
           fi
+          
+          # Convert to uppercase to match your standard
+          TEAM_NAME=$(echo "$TEAM_NAME" | tr '[:lower:]' '[:upper:]')
           
           # Store extracted team name and set output
           echo "$TEAM_NAME" > team-name.txt
