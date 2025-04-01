@@ -1,4 +1,5 @@
 name: Create Team
+
 on:
   pull_request:
     types: [closed]
@@ -11,6 +12,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      members: write
+      organization_administration: write
 
     steps:
       - name: Checkout Repository
@@ -23,34 +26,32 @@ jobs:
         run: |
           # Ensure team-name.txt exists
           if [ ! -f team-name.txt ]; then
-            echo "::error:: team-name.txt not found!"
+            echo "::error::team-name.txt not found!"
             exit 1
           fi
-
-          # Read team name & clean up formatting
-          TEAM_NAME=$(cat team-name.txt | tr -d '\r' | tr -d '`' | xargs)
-
+          
+          # Read and clean team name
+          TEAM_NAME=$(cat team-name.txt | sed 's/[`]//g' | xargs)
+          
           # Validate team name format
           if [[ ! "$TEAM_NAME" =~ ^TEAM-[a-zA-Z0-9_-]+$ ]]; then
             echo "::error::Invalid team name format: '$TEAM_NAME'"
             exit 1
           fi
-
-          # Extract PR Body
-          PR_BODY="${{ github.event.pull_request.body }}"
-
-          # Extract other team details
-          PRIVACY=$(echo "$PR_BODY" | sed -n 's/.*### Visibility[[:space:]]*\n\([a-zA-Z]*\).*/\1/p' | tr '[:upper:]' '[:lower:]')
-          DESCRIPTION=$(echo "$PR_BODY" | sed -n 's/.*### Purpose[[:space:]]*\n\([^\n]*\).*/\1/p')
-          MAINTAINERS=$(echo "$PR_BODY" | sed -n 's/.*### Maintainers (comma-separated)[[:space:]]*\n\([^\n]*\).*/\1/p')
-
-          # Set default values if empty
+          
+          # Extract details from PR body (removing markdown formatting)
+          PR_BODY=$(echo '${{ github.event.pull_request.body }}' | sed 's/[`]//g')
+          
+          PRIVACY=$(echo "$PR_BODY" | grep -A1 "Visibility:" | tail -1 | xargs | tr '[:upper:]' '[:lower:]')
+          DESCRIPTION=$(echo "$PR_BODY" | grep -A1 "Purpose:" | tail -1 | xargs)
+          MAINTAINERS=$(echo "$PR_BODY" | grep -A1 "Maintainers:" | tail -1 | sed 's/none//' | xargs | sed 's/^,*//;s/,*$//')
+          
+          # Set outputs
           echo "TEAM_NAME=$TEAM_NAME" >> $GITHUB_ENV
           echo "PRIVACY=${PRIVACY:-secret}" >> $GITHUB_ENV
           echo "DESCRIPTION=${DESCRIPTION:-Team created via automation}" >> $GITHUB_ENV
           echo "MAINTAINERS=${MAINTAINERS:-none}" >> $GITHUB_ENV
-
-          # Debugging output
+          
           echo "Extracted values:"
           echo "Team: $TEAM_NAME"
           echo "Privacy: $PRIVACY"
@@ -64,7 +65,7 @@ jobs:
         with:
           script: |
             try {
-              const teamSlug = process.env.TEAM_NAME.toLowerCase().replace(/\s+/g, '-');
+              const teamSlug = process.env.TEAM_NAME.toLowerCase().replace(/[^a-z0-9-]/g, '-');
               const { data: team } = await github.rest.teams.create({
                 org: context.repo.owner,
                 name: process.env.TEAM_NAME,
@@ -72,19 +73,23 @@ jobs:
                 description: process.env.DESCRIPTION,
                 privacy: process.env.PRIVACY,
               });
-
+              
               if (process.env.MAINTAINERS && process.env.MAINTAINERS !== 'none') {
-                const maintainers = process.env.MAINTAINERS.split(',');
+                const maintainers = process.env.MAINTAINERS.split(',').map(m => m.trim()).filter(m => m);
                 for (const user of maintainers) {
-                  await github.rest.teams.addOrUpdateMembershipForUserInOrg({
-                    org: context.repo.owner,
-                    team_slug: team.slug,
-                    username: user.trim(),
-                    role: 'maintainer'
-                  });
+                  try {
+                    await github.rest.teams.addOrUpdateMembershipForUserInOrg({
+                      org: context.repo.owner,
+                      team_slug: team.slug,
+                      username: user,
+                      role: 'maintainer'
+                    });
+                  } catch (error) {
+                    core.warning(`Failed to add ${user} as maintainer: ${error.message}`);
+                  }
                 }
               }
-
+              
               await github.rest.issues.createComment({
                 issue_number: ${{ github.event.pull_request.number }},
                 owner: context.repo.owner,
@@ -93,9 +98,8 @@ jobs:
                       `- **Visibility**: ${process.env.PRIVACY}\n` +
                       `- **Description**: ${process.env.DESCRIPTION}\n` +
                       (process.env.MAINTAINERS !== 'none' ? 
-                       `- **Maintainers**: ${process.env.MAINTAINERS}` : '')
+                       `- **Maintainers**: ${process.env.MAINTAINERS.replace(/,/g, ', ')}` : '')
               });
-
             } catch (error) {
               core.setFailed(`Team creation failed: ${error}`);
               await github.rest.issues.createComment({
