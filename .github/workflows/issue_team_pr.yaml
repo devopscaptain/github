@@ -3,7 +3,6 @@ name: Create Team PR
 on:
   issues:
     types: [opened, edited]
-  label: ["team-request"]
 permissions:
   contents: write
   pull-requests: write
