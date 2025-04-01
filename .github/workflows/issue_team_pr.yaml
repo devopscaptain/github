@@ -18,33 +18,26 @@ jobs:
       - name: Extract Team Name
         id: extract
         run: |
-          # Extract issue body from GitHub event
+          # Get issue body
           ISSUE_BODY="${{ github.event.issue.body }}"
 
-          # Debugging: Print the issue body
-          echo "Issue Body:"
-          echo "$ISSUE_BODY"
+          # Extract Team Name
+          TEAM_NAME=$(echo "$ISSUE_BODY" | awk '/^### Team Name/ {getline; print}' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | tr -d '\r')
 
-          # Extract team name using awk and trim spaces
-          TEAM_NAME=$(echo "$ISSUE_BODY" | awk 'BEGIN {RS=""; FS="\n\n"} /^### Team Name/ {getline; print $1}' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
-
-          # Debugging: Print extracted team name
-          echo "Extracted Team Name: '$TEAM_NAME'"
-
-          # Ensure it matches TEAM- pattern
+          # Validate Team Name
           if [[ ! "$TEAM_NAME" =~ ^TEAM-[a-zA-Z0-9_-]+$ ]]; then
-            echo "::error::Team name not found or invalid: '$TEAM_NAME'"
+            echo "::error::Invalid team name format: '$TEAM_NAME'"
             exit 1
           fi
 
-          # Store extracted team name and set output
+          # Save team name and output
           echo "$TEAM_NAME" > team-name.txt
           echo "team_name=$TEAM_NAME" >> "$GITHUB_ENV"
 
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v5
         with:
-          token: ${{ secrets.GH_PAT }}
+          token: ${{ secrets.GITHUB_TOKEN }}
           commit-message: "Add team: ${{ env.team_name }}"
           title: "Create team: ${{ env.team_name }}"
           body: |
