@@ -12,8 +12,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      members: write
-      organization_administration: write
 
     steps:
       - name: Checkout Repository
