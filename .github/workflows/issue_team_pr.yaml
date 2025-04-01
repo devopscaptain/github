@@ -19,22 +19,28 @@ jobs:
         id: extract
         run: |
           # Extract issue body from GitHub event
-          ISSUE_BODY="${{ github.event.issue.body }}"
+          ISSUE_BODY="${{ toJSON(github.event.issue.body) }}"
+          
           # Debugging: Print the issue body
           echo "Issue Body:"
           echo "$ISSUE_BODY"
-          # Extract team name using awk and trim spaces
-          TEAM_NAME=$(echo "$ISSUE_BODY" | awk 'BEGIN {RS=""; FS="\n\n"} /^### Team Name/ {getline; print $1}' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+          
+          # Extract team name using jq to parse the YAML form data
+          TEAM_NAME=$(echo "$ISSUE_BODY" | jq -r '.[] | select(.id == "team_name") | .value')
+          
           # Debugging: Print extracted team name
           echo "Extracted Team Name: '$TEAM_NAME'"
+          
           # Ensure it matches TEAM- pattern
           if [[ ! "$TEAM_NAME" =~ ^TEAM-[a-zA-Z0-9_-]+$ ]]; then
             echo "::error::Team name not found or invalid: '$TEAM_NAME'"
             exit 1
           fi
+          
           # Store extracted team name and set output
           echo "$TEAM_NAME" > team-name.txt
           echo "team_name=$TEAM_NAME" >> "$GITHUB_ENV"
+
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v5
         with:
