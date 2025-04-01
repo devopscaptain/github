@@ -19,14 +19,14 @@ jobs:
         id: extract
         run: |
           # Extract issue body from GitHub event
-          ISSUE_BODY=$(echo '${{ github.event.issue.body }}' | sed 's/\\n/\n/g')
+          ISSUE_BODY="${{ github.event.issue.body }}"
           
           # Debugging: Print the issue body
-          echo "Full Issue Body:"
+          echo "Issue Body:"
           echo "$ISSUE_BODY"
           
-          # Extract team name using more reliable markdown parsing
-          TEAM_NAME=$(echo "$ISSUE_BODY" | awk 'BEGIN {flag=0} /^### Team Name$/ {flag=1; next} flag && NF {print; exit}')
+          # Extract team name using reliable markdown parsing
+          TEAM_NAME=$(echo "$ISSUE_BODY" | awk '/^### Team Name$/{getline; getline; print}' | sed 's/[`]//g' | xargs)
           
           # Debugging: Print extracted team name
           echo "Extracted Team Name: '$TEAM_NAME'"
@@ -49,7 +49,10 @@ jobs:
           title: "Create team: ${{ env.team_name }}"
           body: |
             ### Team Creation Request
-            **Team Name:** `${{ env.team_name }}`
+            **Team Name:** ${{ env.team_name }}
+            **Visibility:** ${{ github.event.issue.visibility || 'Visible' }}
+            **Purpose:** ${{ github.event.issue.purpose || 'Team created via automation' }}
+            **Maintainers:** ${{ github.event.issue.maintainers || 'none' }}
             
             Generated from issue #${{ github.event.issue.number }}
           branch: "team-request/${{ github.event.issue.number }}"
