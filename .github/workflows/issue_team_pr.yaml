@@ -1,4 +1,5 @@
 name: Create Team PR
+
 on:
   issues:
     types: [opened, edited]
@@ -20,8 +21,15 @@ jobs:
           # Extract issue body from GitHub event
           ISSUE_BODY="${{ github.event.issue.body }}"
 
+          # Debugging: Print the issue body
+          echo "Issue Body:"
+          echo "$ISSUE_BODY"
+
           # Extract team name using awk and trim spaces
-          TEAM_NAME=$(echo "$ISSUE_BODY" | awk '/^### Team Name/ {getline; print}' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+          TEAM_NAME=$(echo "$ISSUE_BODY" | awk 'BEGIN {RS=""; FS="\n\n"} /^### Team Name/ {getline; print $1}' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+
+          # Debugging: Print extracted team name
+          echo "Extracted Team Name: '$TEAM_NAME'"
 
           # Ensure it matches TEAM- pattern
           if [[ ! "$TEAM_NAME" =~ ^TEAM-[a-zA-Z0-9_-]+$ ]]; then
@@ -31,17 +39,17 @@ jobs:
 
           # Store extracted team name and set output
           echo "$TEAM_NAME" > team-name.txt
-          echo "team_name=$TEAM_NAME" >> "$GITHUB_OUTPUT"
+          echo "team_name=$TEAM_NAME" >> "$GITHUB_ENV"
 
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v5
         with:
           token: ${{ secrets.GH_PAT }}
-          commit-message: "Add team: ${{ steps.extract.outputs.team_name }}"
-          title: "Create team: ${{ steps.extract.outputs.team_name }}"
+          commit-message: "Add team: ${{ env.team_name }}"
+          title: "Create team: ${{ env.team_name }}"
           body: |
             ### Team Creation Request
-            **Team Name:** `${{ steps.extract.outputs.team_name }}`
+            **Team Name:** `${{ env.team_name }}`
             
             Generated from issue #${{ github.event.issue.number }}
           branch: "team-request/${{ github.event.issue.number }}"
