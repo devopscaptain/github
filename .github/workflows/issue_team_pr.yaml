@@ -17,26 +17,21 @@ jobs:
       - name: Extract Team Name
         id: extract
         run: |
-          # Extract issue body directly from GitHub Actions event
+          # Extract issue body from GitHub event
           ISSUE_BODY="${{ github.event.issue.body }}"
 
-          # Extract team name using awk and grep
-          TEAM_NAME=$(echo "$ISSUE_BODY" | awk '/^### Team Name/ {getline; print}' | grep -oE '^TEAM-[a-zA-Z0-9_-]+')
+          # Extract team name using awk and trim spaces
+          TEAM_NAME=$(echo "$ISSUE_BODY" | awk '/^### Team Name/ {getline; print}' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
 
-          # Validate extraction
-          if [ -z "$TEAM_NAME" ]; then
-            echo "::error::Team name not found or invalid"
+          # Ensure it matches TEAM- pattern
+          if [[ ! "$TEAM_NAME" =~ ^TEAM-[a-zA-Z0-9_-]+$ ]]; then
+            echo "::error::Team name not found or invalid: '$TEAM_NAME'"
             exit 1
           fi
 
           # Store extracted team name and set output
           echo "$TEAM_NAME" > team-name.txt
           echo "team_name=$TEAM_NAME" >> "$GITHUB_OUTPUT"
-
-      - name: Debug Output
-        run: cat team-name.txt  # Optional, to verify the extracted team name
-
-
 
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v5
