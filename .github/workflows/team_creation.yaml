@@ -22,19 +22,25 @@ jobs:
       - name: Extract Team Details
         id: extract
         run: |
-          # Extract PR body
-          PR_BODY="${{ github.event.pull_request.body }}"
-
-          # Check if file exists
+          # Ensure team-name.txt exists
           if [ ! -f team-name.txt ]; then
             echo "::error:: team-name.txt not found!"
             exit 1
           fi
 
-          # Read team name & remove Windows-style line endings
-          TEAM_NAME=$(cat team-name.txt | tr -d '\r')
+          # Read team name & clean up formatting
+          TEAM_NAME=$(cat team-name.txt | tr -d '\r' | tr -d '`' | xargs)
 
-          # Extract other details from PR body
+          # Validate team name format
+          if [[ ! "$TEAM_NAME" =~ ^TEAM-[a-zA-Z0-9_-]+$ ]]; then
+            echo "::error::Invalid team name format: '$TEAM_NAME'"
+            exit 1
+          fi
+
+          # Extract PR Body
+          PR_BODY="${{ github.event.pull_request.body }}"
+
+          # Extract other team details
           PRIVACY=$(echo "$PR_BODY" | sed -n 's/.*### Visibility[[:space:]]*\n\([a-zA-Z]*\).*/\1/p' | tr '[:upper:]' '[:lower:]')
           DESCRIPTION=$(echo "$PR_BODY" | sed -n 's/.*### Purpose[[:space:]]*\n\([^\n]*\).*/\1/p')
           MAINTAINERS=$(echo "$PR_BODY" | sed -n 's/.*### Maintainers (comma-separated)[[:space:]]*\n\([^\n]*\).*/\1/p')
@@ -90,6 +96,7 @@ jobs:
                       (process.env.MAINTAINERS !== 'none' ? 
                        `- **Maintainers**: ${process.env.MAINTAINERS}` : '')
               });
+
             } catch (error) {
               core.setFailed(`Team creation failed: ${error}`);
               await github.rest.issues.createComment({
