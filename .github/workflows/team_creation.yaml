@@ -1,4 +1,5 @@
 name: Create Team
+
 on:
   pull_request:
     types: [closed]
@@ -11,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    
+
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -21,16 +22,27 @@ jobs:
       - name: Extract Team Details
         id: extract
         run: |
+          # Extract PR body
           PR_BODY="${{ github.event.pull_request.body }}"
-          TEAM_NAME=$(cat team-name.txt)
 
-          PRIVACY=$(echo "$PR_BODY" | sed -n 's/^.*Visibility:\s*\(\w*\).*$/\1/p' | tr '[:upper:]' '[:lower:]')
-          DESCRIPTION=$(echo "$PR_BODY" | sed -n 's/^.*Purpose:\s*\(.*\).*$/\1/p')
-          MAINTAINERS=$(echo "$PR_BODY" | sed -n 's/^.*Maintainers:\s*\(.*\).*$/\1/p')
+          # Check if file exists
+          if [ ! -f team-name.txt ]; then
+            echo "::error:: team-name.txt not found!"
+            exit 1
+          fi
 
+          # Read team name & remove Windows-style line endings
+          TEAM_NAME=$(cat team-name.txt | tr -d '\r')
+
+          # Extract other details from PR body
+          PRIVACY=$(echo "$PR_BODY" | sed -n 's/.*### Visibility[[:space:]]*\n\([a-zA-Z]*\).*/\1/p' | tr '[:upper:]' '[:lower:]')
+          DESCRIPTION=$(echo "$PR_BODY" | sed -n 's/.*### Purpose[[:space:]]*\n\([^\n]*\).*/\1/p')
+          MAINTAINERS=$(echo "$PR_BODY" | sed -n 's/.*### Maintainers (comma-separated)[[:space:]]*\n\([^\n]*\).*/\1/p')
+
+          # Set default values if empty
           echo "TEAM_NAME=$TEAM_NAME" >> $GITHUB_ENV
           echo "PRIVACY=${PRIVACY:-secret}" >> $GITHUB_ENV
-          echo "DESCRIPTION='${DESCRIPTION:-Team created via automation}'" >> $GITHUB_ENV
+          echo "DESCRIPTION=${DESCRIPTION:-Team created via automation}" >> $GITHUB_ENV
           echo "MAINTAINERS=${MAINTAINERS:-none}" >> $GITHUB_ENV
 
           # Debugging output
@@ -48,7 +60,6 @@ jobs:
           script: |
             try {
               const teamSlug = process.env.TEAM_NAME.toLowerCase().replace(/\s+/g, '-');
-
               const { data: team } = await github.rest.teams.create({
                 org: context.repo.owner,
                 name: process.env.TEAM_NAME,
