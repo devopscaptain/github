@@ -19,19 +19,19 @@ jobs:
         id: extract
         run: |
           # Extract issue body from GitHub event
-          ISSUE_BODY=$'${{ github.event.issue.body }}'
+          ISSUE_BODY=$(echo '${{ github.event.issue.body }}' | sed 's/\\n/\n/g')
           
           # Debugging: Print the issue body
-          echo "Issue Body:"
+          echo "Full Issue Body:"
           echo "$ISSUE_BODY"
           
-          # Extract team name using more precise pattern matching
-          TEAM_NAME=$(echo "$ISSUE_BODY" | awk -v RS='### ' -F'\n' '$1 ~ /^Team Name$/ {print $2}' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+          # Extract team name using more reliable markdown parsing
+          TEAM_NAME=$(echo "$ISSUE_BODY" | awk 'BEGIN {flag=0} /^### Team Name$/ {flag=1; next} flag && NF {print; exit}')
           
           # Debugging: Print extracted team name
           echo "Extracted Team Name: '$TEAM_NAME'"
           
-          # Ensure it matches TEAM- pattern (case-sensitive)
+          # Ensure it matches TEAM- pattern
           if [[ ! "$TEAM_NAME" =~ ^TEAM-[a-zA-Z0-9_-]+$ ]]; then
             echo "::error::Team name not found or invalid: '$TEAM_NAME'"
             exit 1
