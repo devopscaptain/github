@@ -19,14 +19,19 @@ jobs:
         id: extract
         run: |
           # Extract issue body from GitHub event
-          ISSUE_BODY="${{ toJSON(github.event.issue.body) }}"
+          ISSUE_BODY=$(echo '${{ toJSON(github.event.issue.body) }}' | jq -r .)
           
           # Debugging: Print the issue body
           echo "Issue Body:"
           echo "$ISSUE_BODY"
           
-          # Extract team name using jq to parse the YAML form data
-          TEAM_NAME=$(echo "$ISSUE_BODY" | jq -r '.[] | select(.id == "team_name") | .value')
+          # Extract team name using grep for the YAML form structure
+          TEAM_NAME=$(echo "$ISSUE_BODY" | grep -oP '(?<=### Team Name\n\n).*' | head -1 | tr -d '[:space:]')
+          
+          # Fallback: Try extracting from the form data structure
+          if [ -z "$TEAM_NAME" ]; then
+            TEAM_NAME=$(echo "$ISSUE_BODY" | grep -oP 'team_name.*?value:\s*\K.*' | head -1 | tr -d '[:space:]')
+          fi
           
           # Debugging: Print extracted team name
           echo "Extracted Team Name: '$TEAM_NAME'"
