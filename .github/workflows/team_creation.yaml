@@ -14,6 +14,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      members: write
+      organization: write
 
     steps:
       - name: Checkout Repository
@@ -24,30 +26,24 @@ jobs:
       - name: Extract Team Details
         id: extract
         run: |
-          # Ensure team-name.txt exists
           if [ ! -f team-name.txt ]; then
             echo "::error::team-name.txt not found!"
             exit 1
           fi
           
-          # Read and clean team name
           TEAM_NAME=$(cat team-name.txt | sed 's/[`]//g' | xargs)
           
-          # Validate team name format
           if [[ ! "$TEAM_NAME" =~ ^TEAM-[a-zA-Z0-9_-]+$ ]]; then
             echo "::error::Invalid team name format: '$TEAM_NAME'"
             exit 1
           fi
           
-          # Extract details from PR body
           PR_BODY=$(echo '${{ toJSON(github.event.pull_request.body) }}' | jq -r .)
           
-          # Improved extraction of fields
-          PRIVACY=$(echo "$PR_BODY" | grep -A1 "Visibility:" | tail -1 | xargs | tr '[:upper:]' '[:lower:]')
-          DESCRIPTION=$(echo "$PR_BODY" | grep -A1 "Purpose:" | tail -1 | xargs)
-          MAINTAINERS=$(echo "$PR_BODY" | grep -A1 "Maintainers:" | tail -1 | sed 's/none//' | xargs | sed 's/^,*//;s/,*$//')
+          PRIVACY=$(echo "$PR_BODY" | grep -oP '(?<=Visibility:\*\* ).*' | head -1 | xargs | tr '[:upper:]' '[:lower:]')
+          DESCRIPTION=$(echo "$PR_BODY" | grep -oP '(?<=Purpose:\*\* ).*' | head -1 | xargs)
+          MAINTAINERS=$(echo "$PR_BODY" | grep -oP '(?<=Maintainers:\*\* ).*' | head -1 | sed 's/none//' | xargs | sed 's/^,*//;s/,*$//')
           
-          # Set outputs
           echo "TEAM_NAME=$TEAM_NAME" >> $GITHUB_ENV
           echo "PRIVACY=${PRIVACY:-secret}" >> $GITHUB_ENV
           echo "DESCRIPTION=${DESCRIPTION:-Team created via automation}" >> $GITHUB_ENV
@@ -64,10 +60,9 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
         with:
-          github-token: ${{ secrets.GH_PAT }} 
           script: |
+            // No redeclaration of core or github - they're automatically available
             try {
-              // Create the team
               const teamSlug = process.env.TEAM_NAME.toLowerCase().replace(/[^a-z0-9-]/g, '-');
               const { data: team } = await github.rest.teams.create({
                 org: context.repo.owner,
@@ -77,15 +72,12 @@ jobs:
                 privacy: process.env.PRIVACY,
               });
               
-              core.info(`Team ${team.name} created successfully`);
+              console.log(`Team ${team.name} created successfully`);
               
-              // Add maintainers if specified
               if (process.env.MAINTAINERS && process.env.MAINTAINERS !== 'none') {
                 const maintainers = process.env.MAINTAINERS.split(',')
                   .map(m => m.trim())
                   .filter(m => m.length > 0);
-                
-                core.info(`Adding maintainers: ${maintainers.join(', ')}`);
                 
                 for (const username of maintainers) {
                   try {
@@ -95,23 +87,22 @@ jobs:
                       username: username,
                       role: 'maintainer'
                     });
-                    core.info(`Successfully added ${username} as maintainer`);
+                    console.log(`Added maintainer: ${username}`);
                   } catch (error) {
-                    core.warning(`Failed to add ${username} as maintainer: ${error.message}`);
+                    console.warn(`Failed to add ${username}: ${error.message}`);
                   }
                 }
               }
               
-              // Create success comment
               await github.rest.issues.createComment({
                 issue_number: context.payload.pull_request.number,
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                body: `✅ Team **${team.name}** created successfully!\n\n` +
-                      `- **Visibility**: ${process.env.PRIVACY}\n` +
-                      `- **Description**: ${process.env.DESCRIPTION}\n` +
+                body: `✅ Team **${team.name}** created!\n` +
+                      `• Visibility: ${process.env.PRIVACY}\n` +
+                      `• Description: ${process.env.DESCRIPTION}\n` +
                       (process.env.MAINTAINERS !== 'none' ? 
-                       `- **Maintainers**: ${process.env.MAINTAINERS.replace(/,/g, ', ')}` : '')
+                       `• Maintainers: ${process.env.MAINTAINERS.replace(/,/g, ', ')}` : '')
               });
             } catch (error) {
               core.setFailed(`Team creation failed: ${error.message}`);
