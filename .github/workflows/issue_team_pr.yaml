@@ -10,6 +10,9 @@ permissions:
 
 jobs:
   create_pr:
+    if: |
+      github.event.pull_request.merged == true &&
+      contains(github.event.pull_request.labels.*.name, 'team-creation')  
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
