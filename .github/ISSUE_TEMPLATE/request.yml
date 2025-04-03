@@ -1,7 +1,7 @@
 name: "Repository Request"
 description: "Request a new GitHub repository"
 title: "[Repo Request] <Your Repository Name>"
-labels: [repo-request]
+labels: [repo-creation]
 body:
   - type: input
     id: repo_name
