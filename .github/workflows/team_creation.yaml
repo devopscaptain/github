@@ -14,8 +14,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      members: write
-      organization: write
 
     steps:
       - name: Checkout Repository
@@ -60,6 +58,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
         with:
+          token: ${{ secrets.GH_PAT }}
           script: |
             // No redeclaration of core or github - they're automatically available
             try {
