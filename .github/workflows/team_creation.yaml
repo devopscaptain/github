@@ -5,10 +5,12 @@ on:
     types: [closed]
     paths:
       - 'team-name.txt'
-    branches: [main]  # Specify your main branch
+
 jobs:
   create_team:
-    if: github.event.pull_request.merged == true
+    if: |
+      github.event.pull_request.merged == true &&
+      contains(github.event.pull_request.labels.*.name, 'team-creation')
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -37,9 +39,10 @@ jobs:
             exit 1
           fi
           
-          # Extract details from PR body (removing markdown formatting)
-          PR_BODY=$(echo '${{ github.event.pull_request.body }}' | sed 's/[`]//g')
+          # Extract details from PR body
+          PR_BODY=$(echo '${{ toJSON(github.event.pull_request.body) }}' | jq -r .)
           
+          # Improved extraction of fields
           PRIVACY=$(echo "$PR_BODY" | grep -A1 "Visibility:" | tail -1 | xargs | tr '[:upper:]' '[:lower:]')
           DESCRIPTION=$(echo "$PR_BODY" | grep -A1 "Purpose:" | tail -1 | xargs)
           MAINTAINERS=$(echo "$PR_BODY" | grep -A1 "Maintainers:" | tail -1 | sed 's/none//' | xargs | sed 's/^,*//;s/,*$//')
@@ -59,52 +62,65 @@ jobs:
       - name: Create GitHub Team
         uses: actions/github-script@v6
         env:
-          GH_TOKEN: ${{ secrets.GH_PAT }}  
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          github-token: ${{ secrets.GH_PAT }}
           script: |
+            const core = require('@actions/core');
+            const github = require('@actions/github');
+            
             try {
+              // Create the team
               const teamSlug = process.env.TEAM_NAME.toLowerCase().replace(/[^a-z0-9-]/g, '-');
               const { data: team } = await github.rest.teams.create({
-                org: context.repo.owner,
+                org: github.context.repo.owner,
                 name: process.env.TEAM_NAME,
                 slug: teamSlug,
                 description: process.env.DESCRIPTION,
                 privacy: process.env.PRIVACY,
               });
               
+              core.info(`Team ${team.name} created successfully`);
+              
+              // Add maintainers if specified
               if (process.env.MAINTAINERS && process.env.MAINTAINERS !== 'none') {
-                const maintainers = process.env.MAINTAINERS.split(',').map(m => m.trim()).filter(m => m);
-                for (const user of maintainers) {
+                const maintainers = process.env.MAINTAINERS.split(',')
+                  .map(m => m.trim())
+                  .filter(m => m.length > 0);
+                
+                core.info(`Adding maintainers: ${maintainers.join(', ')}`);
+                
+                for (const username of maintainers) {
                   try {
                     await github.rest.teams.addOrUpdateMembershipForUserInOrg({
-                      org: context.repo.owner,
+                      org: github.context.repo.owner,
                       team_slug: team.slug,
-                      username: user,
+                      username: username,
                       role: 'maintainer'
                     });
+                    core.info(`Successfully added ${username} as maintainer`);
                   } catch (error) {
-                    core.warning(`Failed to add ${user} as maintainer: ${error.message}`);
+                    core.warning(`Failed to add ${username} as maintainer: ${error.message}`);
                   }
                 }
               }
               
+              // Create success comment
               await github.rest.issues.createComment({
-                issue_number: ${{ github.event.pull_request.number }},
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                body: `✅ Team **${team.name}** created!\n\n` +
+                issue_number: github.context.payload.pull_request.number,
+                owner: github.context.repo.owner,
+                repo: github.context.repo.repo,
+                body: `✅ Team **${team.name}** created successfully!\n\n` +
                       `- **Visibility**: ${process.env.PRIVACY}\n` +
                       `- **Description**: ${process.env.DESCRIPTION}\n` +
                       (process.env.MAINTAINERS !== 'none' ? 
                        `- **Maintainers**: ${process.env.MAINTAINERS.replace(/,/g, ', ')}` : '')
               });
             } catch (error) {
-              core.setFailed(`Team creation failed: ${error}`);
+              core.setFailed(`Team creation failed: ${error.message}`);
               await github.rest.issues.createComment({
-                issue_number: ${{ github.event.pull_request.number }},
-                owner: context.repo.owner,
-                repo: context.repo.repo,
+                issue_number: github.context.payload.pull_request.number,
+                owner: github.context.repo.owner,
+                repo: github.context.repo.repo,
                 body: `❌ Failed to create team: ${error.message}`
               });
             }
