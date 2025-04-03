@@ -62,8 +62,9 @@ jobs:
       - name: Create GitHub Team
         uses: actions/github-script@v6
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_PAT }}
         with:
+          github-token: ${{ secrets.GH_PAT }} 
           script: |
             try {
               // Create the team
