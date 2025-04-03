@@ -65,14 +65,11 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           script: |
-            const core = require('@actions/core');
-            const github = require('@actions/github');
-            
             try {
               // Create the team
               const teamSlug = process.env.TEAM_NAME.toLowerCase().replace(/[^a-z0-9-]/g, '-');
               const { data: team } = await github.rest.teams.create({
-                org: github.context.repo.owner,
+                org: context.repo.owner,
                 name: process.env.TEAM_NAME,
                 slug: teamSlug,
                 description: process.env.DESCRIPTION,
@@ -92,7 +89,7 @@ jobs:
                 for (const username of maintainers) {
                   try {
                     await github.rest.teams.addOrUpdateMembershipForUserInOrg({
-                      org: github.context.repo.owner,
+                      org: context.repo.owner,
                       team_slug: team.slug,
                       username: username,
                       role: 'maintainer'
@@ -106,9 +103,9 @@ jobs:
               
               // Create success comment
               await github.rest.issues.createComment({
-                issue_number: github.context.payload.pull_request.number,
-                owner: github.context.repo.owner,
-                repo: github.context.repo.repo,
+                issue_number: context.payload.pull_request.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
                 body: `✅ Team **${team.name}** created successfully!\n\n` +
                       `- **Visibility**: ${process.env.PRIVACY}\n` +
                       `- **Description**: ${process.env.DESCRIPTION}\n` +
@@ -118,9 +115,9 @@ jobs:
             } catch (error) {
               core.setFailed(`Team creation failed: ${error.message}`);
               await github.rest.issues.createComment({
-                issue_number: github.context.payload.pull_request.number,
-                owner: github.context.repo.owner,
-                repo: github.context.repo.repo,
+                issue_number: context.payload.pull_request.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
                 body: `❌ Failed to create team: ${error.message}`
               });
             }
