@@ -1,60 +1,76 @@
-# .github/workflows/create-repo-after-merge.yml
-name: Create Repository After PR Merge
+name: Create Team PR
 
 on:
-  pull_request:
-    types: [closed]
+  issues:
+    types: [opened, edited]
 
+permissions:
+  contents: write
+  pull-requests: write
 
 jobs:
-  create_repo:
-    if: github.event.pull_request.merged == true
+  create_pr:
     runs-on: ubuntu-latest
     steps:
-      - name: Extract PR Details
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Extract Team Details
         id: extract
         run: |
-          # Get PR body and extract details
-          PR_BODY="${{ github.event.pull_request.body }}"
+          # Extract issue body from GitHub event
+          ISSUE_BODY="${{ github.event.issue.body }}"
           
-          REPO_NAME=$(echo "$PR_BODY" | grep -oP '(?<=- \*\*Name\*\*: ).*')
-          BRANCH=$(echo "$PR_BODY" | grep -oP '(?<=- \*\*Default Branch\*\*: ).*')
-          INCLUDE_README=$(echo "$PR_BODY" | grep -oP '(?<=- \*\*Include README\*\*: ).*')
+          # Debugging: Print the issue body
+          echo "Issue Body:"
+          echo "$ISSUE_BODY"
+          
+          # Extract all fields using more precise parsing
+          TEAM_NAME=$(echo "$ISSUE_BODY" | awk '/^### Team Name$/{getline; getline; print}' | sed 's/[`]//g' | xargs)
+          VISIBILITY=$(echo "$ISSUE_BODY" | awk '/^### Visibility$/{getline; getline; print}' | sed 's/[`]//g' | xargs)
+          PURPOSE=$(echo "$ISSUE_BODY" | awk '/^### Purpose$/{getline; getline; print}' | sed 's/[`]//g' | xargs)
+          MAINTAINERS=$(echo "$ISSUE_BODY" | awk '/^### Maintainers \(comma-separated\)$/{getline; getline; print}' | sed 's/[`]//g' | xargs)
+          
+          # Debugging: Print extracted values
+          echo "Extracted Values:"
+          echo "Team Name: '$TEAM_NAME'"
+          echo "Visibility: '$VISIBILITY'"
+          echo "Purpose: '$PURPOSE'"
+          echo "Maintainers: '$MAINTAINERS'"
+          
+          # Validate team name format
+          if [[ ! "$TEAM_NAME" =~ ^TEAM-[a-zA-Z0-9_-]+$ ]]; then
+            echo "::error::Team name not found or invalid: '$TEAM_NAME'"
+            exit 1
+          fi
+          
+          # Set default values if empty
+          VISIBILITY=${VISIBILITY:-Visible}
+          PURPOSE=${PURPOSE:-Team created via automation}
+          MAINTAINERS=${MAINTAINERS:-none}
+          
+          # Store extracted values
+          echo "$TEAM_NAME" > team-name.txt
+          echo "team_name=$TEAM_NAME" >> "$GITHUB_ENV"
+          echo "visibility=$VISIBILITY" >> "$GITHUB_ENV"
+          echo "purpose=$PURPOSE" >> "$GITHUB_ENV"
+          echo "maintainers=$MAINTAINERS" >> "$GITHUB_ENV"
 
-          echo "REPO_NAME=$REPO_NAME" >> $GITHUB_ENV
-          echo "BRANCH=$BRANCH" >> $GITHUB_ENV
-          echo "INCLUDE_README=$INCLUDE_README" >> $GITHUB_ENV
-
-      - name: Create Repository
-        uses: actions/github-script@v6
-        env:
-          GH_TOKEN: ${{ secrets.GH_PAT }}  
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v5
         with:
-          github-token: ${{ secrets.GH_PAT }} 
-          script: |
-            try {
-              await github.rest.repos.createInOrg({
-                org: context.repo.owner,
-                name: process.env.REPO_NAME,
-                private: false,
-                auto_init: true,
-                license_template: 'mit'
-              });
-              console.log(`Created repository: ${process.env.REPO_NAME}`);
-            } catch (error) {
-              core.setFailed(`Repository creation failed: ${error}`);
-            }
-
-      - name: Add README if requested
-        if: env.INCLUDE_README == 'Yes'
-        env:
-          GH_TOKEN: ${{ secrets.GH_PAT }}        
-        run: |
-          git clone https://${{ github.actor }}:${{ secrets.GH_PAT }}@github.com/${{ github.repository_owner }}/${{ env.REPO_NAME }}.git
-          cd ${{ env.REPO_NAME }}
-          echo "# ${{ env.REPO_NAME }}" > README.md
-          git add README.md
-          git config user.name "github-actions"
-          git config user.email "actions@github.com"
-          git commit -m "Add initial README"
-          git push
+          token: ${{ secrets.GH_PAT }}
+          commit-message: "Add team: ${{ env.team_name }}"
+          title: "Create team: ${{ env.team_name }}"
+          body: |
+            ### Team Creation Request
+            **Team Name:** ${{ env.team_name }}
+            **Visibility:** ${{ env.visibility }}
+            **Purpose:** ${{ env.purpose }}
+            **Maintainers:** ${{ env.maintainers }}
+            
+            Generated from issue #${{ github.event.issue.number }}
+          branch: "team-request/${{ github.event.issue.number }}"
+          labels: "team-creation"
+          paths: |
+            team-name.txt
