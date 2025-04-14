@@ -11,8 +11,7 @@ permissions:
 jobs:
   create_repo_pr:
     if: |
-        github.event.pull_request.merged == true &&
-        contains(github.event.pull_request.labels.*.name, 'repo-creation')      
+        github.event.issue.labels && contains(join(github.event.issue.labels.*.name, ','), 'repo-creation')
     runs-on: ubuntu-latest
 
     steps:

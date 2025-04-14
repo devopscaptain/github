@@ -10,7 +10,7 @@ jobs:
   create_repo:
     if: |
         github.event.pull_request.merged == true &&
-        contains(github.event.pull_request.labels.*.name, 'repo-creation')    
+        contains(github.event.pull_request.labels.*.name, 'repo-creation')   
     runs-on: ubuntu-latest
     steps:
       - name: Extract PR Details
