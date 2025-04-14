@@ -11,8 +11,7 @@ permissions:
 jobs:
   create_pr:
     if: |
-      github.event.pull_request.merged == true &&
-      contains(github.event.pull_request.labels.*.name, 'team-creation')  
+      github.event.issue.labels && contains(join(github.event.issue.labels.*.name, ','), 'team-request')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
@@ -21,43 +20,40 @@ jobs:
       - name: Extract Team Details
         id: extract
         run: |
-          # Extract issue body from GitHub event
           ISSUE_BODY="${{ github.event.issue.body }}"
-          
-          # Debugging: Print the issue body
+
           echo "Issue Body:"
           echo "$ISSUE_BODY"
-          
-          # Extract all fields using more precise parsing
+
           TEAM_NAME=$(echo "$ISSUE_BODY" | awk '/^### Team Name$/{getline; getline; print}' | sed 's/[`]//g' | xargs)
           VISIBILITY=$(echo "$ISSUE_BODY" | awk '/^### Visibility$/{getline; getline; print}' | sed 's/[`]//g' | xargs)
           PURPOSE=$(echo "$ISSUE_BODY" | awk '/^### Purpose$/{getline; getline; print}' | sed 's/[`]//g' | xargs)
           MAINTAINERS=$(echo "$ISSUE_BODY" | awk '/^### Maintainers \(comma-separated\)$/{getline; getline; print}' | sed 's/[`]//g' | xargs)
-          
-          # Debugging: Print extracted values
+          TEAM_MEMBERS=$(echo "$ISSUE_BODY" | awk '/^### Team Members \(comma-separated\)$/{getline; getline; print}' | sed 's/[`]//g' | xargs)
+
           echo "Extracted Values:"
           echo "Team Name: '$TEAM_NAME'"
           echo "Visibility: '$VISIBILITY'"
           echo "Purpose: '$PURPOSE'"
           echo "Maintainers: '$MAINTAINERS'"
-          
-          # Validate team name format
-          if [[ ! "$TEAM_NAME" =~ ^TEAM-[a-zA-Z0-9_-]+$ ]]; then
-            echo "::error::Team name not found or invalid: '$TEAM_NAME'"
+          echo "Team Members: '$TEAM_MEMBERS'"
+
+          if [[ ! "$TEAM_NAME" =~ ^TEAM-[a-zA-Z0-9_-]{3,20}$ ]]; then
+            echo "::error::Invalid team name format: '$TEAM_NAME'"
             exit 1
           fi
-          
-          # Set default values if empty
+
           VISIBILITY=${VISIBILITY:-Visible}
           PURPOSE=${PURPOSE:-Team created via automation}
           MAINTAINERS=${MAINTAINERS:-none}
-          
-          # Store extracted values
+          TEAM_MEMBERS=${TEAM_MEMBERS:-none}
+
           echo "$TEAM_NAME" > team-name.txt
           echo "team_name=$TEAM_NAME" >> "$GITHUB_ENV"
           echo "visibility=$VISIBILITY" >> "$GITHUB_ENV"
           echo "purpose=$PURPOSE" >> "$GITHUB_ENV"
           echo "maintainers=$MAINTAINERS" >> "$GITHUB_ENV"
+          echo "team_members=$TEAM_MEMBERS" >> "$GITHUB_ENV"
 
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v5
@@ -71,7 +67,8 @@ jobs:
             **Visibility:** ${{ env.visibility }}
             **Purpose:** ${{ env.purpose }}
             **Maintainers:** ${{ env.maintainers }}
-            
+            **Team Members:** ${{ env.team_members }}
+
             Generated from issue #${{ github.event.issue.number }}
           branch: "team-request/${{ github.event.issue.number }}"
           labels: "team-creation"

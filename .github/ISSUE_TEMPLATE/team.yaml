@@ -32,7 +32,18 @@ body:
     id: maintainers
     attributes:
       label: "Maintainers (comma-separated)"
-      placeholder: "user1,user2"
+      description: "Include GitHub usernames or teams (e.g., user1,@org/team1)"
+      placeholder: "user1,user2,@org/team1"
     validations:
       required: true
-      pattern: "^[a-z0-9_-]+(,[a-z0-9_-]+)*$"
+      pattern: "^(@?[a-z0-9_.-]+(/[a-z0-9_.-]+)?)(,\\s*@?[a-z0-9_.-]+(/[a-z0-9_.-]+)?)*$"
+
+  - type: input
+    id: team_members
+    attributes:
+      label: "Team Members (comma-separated)"
+      description: "List additional team members (e.g., user3,user4,@org/team2)"
+      placeholder: "user3,user4,@org/team2"
+    validations:
+      required: false
+      pattern: "^(@?[a-z0-9_.-]+(/[a-z0-9_.-]+)?)(,\\s*@?[a-z0-9_.-]+(/[a-z0-9_.-]+)?)*$"
