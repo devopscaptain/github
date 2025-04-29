@@ -2,7 +2,7 @@ name: Process Repository Request
 
 on:
   issues:
-    types: [opened]
+    types: [labeled]
 
 permissions:
   contents: write

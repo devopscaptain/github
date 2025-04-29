@@ -2,7 +2,7 @@ name: Create Team PR
 
 on:
   issues:
-    types: [opened, edited]
+    types: [labeled]
 
 permissions:
   contents: write
