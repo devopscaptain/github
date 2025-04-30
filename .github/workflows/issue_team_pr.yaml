@@ -72,6 +72,8 @@ jobs:
             Generated from issue #${{ github.event.issue.number }}
           branch: "team-request/${{ github.event.issue.number }}"
           labels: "team-creation"
+          paths: |
+            team-name.txt
 
       - name: Post a message in Slack
         uses: slackapi/slack-github-action@v2.0.0
@@ -87,5 +89,4 @@ jobs:
                   text: ":tada: A new PR has been created for team *`${{ env.team_name }}`*!\n*Purpose:* ${{ env.purpose }}\n*Maintainers:* ${{ env.maintainers }}\n<https://github.com/${{ github.repository }}/pull/${{ steps.create_pr.outputs.pull-request-number }}|View Pull Request>"
 
           
-          paths: |
-            team-name.txt
+
