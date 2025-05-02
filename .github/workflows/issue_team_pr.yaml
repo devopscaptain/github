@@ -30,6 +30,7 @@ jobs:
           PURPOSE=$(echo "$ISSUE_BODY" | awk '/^### Purpose$/{getline; getline; print}' | sed 's/[`]//g' | xargs)
           MAINTAINERS=$(echo "$ISSUE_BODY" | awk '/^### Maintainers \(comma-separated\)$/{getline; getline; print}' | sed 's/[`]//g' | xargs)
           TEAM_MEMBERS=$(echo "$ISSUE_BODY" | awk '/^### Team Members \(comma-separated\)$/{getline; getline; print}' | sed 's/[`]//g' | xargs)
+          PARENT_TEAM=$(echo "$ISSUE_BODY" | awk '/^### Parent Team \(optional\)$/{getline; getline; print}' | sed 's/[`]//g' | xargs)
 
           echo "Extracted Values:"
           echo "Team Name: '$TEAM_NAME'"
@@ -37,7 +38,7 @@ jobs:
           echo "Purpose: '$PURPOSE'"
           echo "Maintainers: '$MAINTAINERS'"
           echo "Team Members: '$TEAM_MEMBERS'"
-
+          echo "Parent Team: '$PARENT_TEAM'"
           if [[ ! "$TEAM_NAME" =~ ^TEAM-[a-zA-Z0-9_-]{3,20}$ ]]; then
             echo "::error::Invalid team name format: '$TEAM_NAME'"
             exit 1
@@ -47,6 +48,8 @@ jobs:
           PURPOSE=${PURPOSE:-Team created via automation}
           MAINTAINERS=${MAINTAINERS:-none}
           TEAM_MEMBERS=${TEAM_MEMBERS:-none}
+          PARENT_TEAM=${PARENT_TEAM:-none}
+
 
           echo "$TEAM_NAME" > team-name.txt
           echo "team_name=$TEAM_NAME" >> "$GITHUB_ENV"
@@ -54,6 +57,8 @@ jobs:
           echo "purpose=$PURPOSE" >> "$GITHUB_ENV"
           echo "maintainers=$MAINTAINERS" >> "$GITHUB_ENV"
           echo "team_members=$TEAM_MEMBERS" >> "$GITHUB_ENV"
+          echo "parent_team=$PARENT_TEAM" >> "$GITHUB_ENV"
+
 
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v5
@@ -66,9 +71,9 @@ jobs:
             **Team Name:** ${{ env.team_name }}
             **Visibility:** ${{ env.visibility }}
             **Purpose:** ${{ env.purpose }}
+            **Parent Team:** ${{ env.parent_team }}
             **Maintainers:** ${{ env.maintainers }}
             **Team Members:** ${{ env.team_members }}
-
             Generated from issue #${{ github.event.issue.number }}
           branch: "team-request/${{ github.event.issue.number }}"
           labels: "team-creation"
@@ -86,7 +91,8 @@ jobs:
               - type: section
                 text:
                   type: mrkdwn
-                  text: ":tada: A new PR has been created for team *`${{ env.team_name }}`*!\n*Purpose:* ${{ env.purpose }}\n*Maintainers:* ${{ env.maintainers }}\n<https://github.com/${{ github.repository }}/pull/${{ steps.create_pr.outputs.pull-request-number }}|View Pull Request>"
+                  text: ":tada: A new PR has been created for team *`${{ env.team_name }}`*!\n*Purpose:* ${{ env.purpose }}\n*Maintainers:* ${{ env.maintainers }}\n*Parent:* `${{ env.parent_team }}`\n<https://github.com/${{ github.repository }}/pull/${{ steps.create_pr.outputs.pull-request-number }}|View Pull Request>"
+
 
           
 

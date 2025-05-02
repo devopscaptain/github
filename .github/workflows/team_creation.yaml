@@ -28,26 +28,28 @@ jobs:
             echo "::error::team-name.txt not found!"
             exit 1
           fi
-          
+
           TEAM_NAME=$(cat team-name.txt | sed 's/[`]//g' | xargs)
-          
+
           if [[ ! "$TEAM_NAME" =~ ^TEAM-[a-zA-Z0-9_-]+$ ]]; then
             echo "::error::Invalid team name format: '$TEAM_NAME'"
             exit 1
           fi
-          
+
           PR_BODY=$(echo '${{ toJSON(github.event.pull_request.body) }}' | jq -r .)
 
           PRIVACY=$(echo "$PR_BODY" | grep -oP '(?<=Visibility:\*\* ).*' | head -1 | xargs | tr '[:upper:]' '[:lower:]')
           DESCRIPTION=$(echo "$PR_BODY" | grep -oP '(?<=Purpose:\*\* ).*' | head -1 | xargs)
           MAINTAINERS=$(echo "$PR_BODY" | grep -oP '(?<=Maintainers:\*\* ).*' | head -1 | sed 's/none//' | xargs | sed 's/^,*//;s/,*$//')
           MEMBERS=$(echo "$PR_BODY" | grep -oP '(?<=Team Members:\*\* ).*' | head -1 | sed 's/none//' | xargs | sed 's/^,*//;s/,*$//')
-          
+          PARENT_TEAM=$(echo "$PR_BODY" | grep -oP '(?<=Parent Team:\*\* ).*' | head -1 | xargs)
+
           echo "TEAM_NAME=$TEAM_NAME" >> $GITHUB_ENV
           echo "PRIVACY=${PRIVACY:-secret}" >> $GITHUB_ENV
           echo "DESCRIPTION=${DESCRIPTION:-Team created via automation}" >> $GITHUB_ENV
           echo "MAINTAINERS=${MAINTAINERS:-none}" >> $GITHUB_ENV
           echo "MEMBERS=${MEMBERS:-none}" >> $GITHUB_ENV
+          echo "PARENT_TEAM=${PARENT_TEAM}" >> $GITHUB_ENV
 
           echo "Extracted values:"
           echo "Team: $TEAM_NAME"
@@ -55,6 +57,7 @@ jobs:
           echo "Description: $DESCRIPTION"
           echo "Maintainers: $MAINTAINERS"
           echo "Team Members: $MEMBERS"
+          echo "Parent Team: $PARENT_TEAM"
 
       - name: Create GitHub Team
         uses: actions/github-script@v6
@@ -74,6 +77,21 @@ jobs:
               });
 
               console.log(`Team ${team.name} created successfully`);
+
+              // Add the Parent Team logic if a parent team is specified
+              if (process.env.PARENT_TEAM) {
+                try {
+                  await github.rest.teams.addOrUpdateMembershipForTeamInOrg({
+                    org: context.repo.owner,
+                    team_slug: process.env.PARENT_TEAM.toLowerCase().replace(/[^a-z0-9-]/g, '-'),
+                    team_id: team.id,
+                    role: 'member'
+                  });
+                  console.log(`Assigned ${process.env.PARENT_TEAM} as parent for team ${team.name}`);
+                } catch (parentError) {
+                  console.warn(`Failed to assign parent team ${process.env.PARENT_TEAM}: ${parentError.message}`);
+                }
+              }
 
               const addMembers = async (userList, role) => {
                 if (!userList || userList === 'none') return;
@@ -125,3 +143,19 @@ jobs:
                 body: `❌ Failed to create team: ${error.message}`
               });
             }
+
+      - name: Cleanup - Remove team-name.txt from Repo
+        if: success()
+        run: |
+          echo "Cleaning up and removing team-name.txt from repository..."
+
+          # Remove the file from Git tracking
+          git rm -f team-name.txt
+
+          # Commit the removal
+          git commit -m "Remove team-name.txt after team creation"
+
+          # Push changes back to the repository
+          git push origin ${GITHUB_REF}
+
+          echo "File team-name.txt removed from the repository."

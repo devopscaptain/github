@@ -47,3 +47,13 @@ body:
     validations:
       required: false
       pattern: "^(@?[a-z0-9_.-]+(/[a-z0-9_.-]+)?)(,\\s*@?[a-z0-9_.-]+(/[a-z0-9_.-]+)?)*$"
+
+  - type: input
+    id: parent_team
+    attributes:
+      label: "Parent Team (optional)"
+      description: "If this team should be nested under another, provide the parent team's slug"
+      placeholder: "team-platform"
+    validations:
+      required: false
+      pattern: "^[a-zA-Z0-9_-]*$"
