@@ -11,7 +11,7 @@ permissions:
 jobs:
   create_repo_pr:
     if: |
-        github.event.issue.labels && contains(join(github.event.issue.labels.*.name, ','), 'repo-creation')
+      github.event.issue.labels && contains(join(github.event.issue.labels.*.name, ','), 'repo-creation')
     runs-on: ubuntu-latest
 
     steps:
@@ -20,65 +20,34 @@ jobs:
         with:
           fetch-depth: 0
 
-      # - name: Parse Issue Details
-      #   id: parse
-      #   run: |
-      #     ISSUE_BODY=$(jq -r '.issue.body' "$GITHUB_EVENT_PATH")
-
-      #     # Extract values by locating the header and capturing the next line
-      #     REPO_NAME=$(echo "$ISSUE_BODY" | awk -v RS= '/^### Repository Name/ {print $2}')
-      #     BRANCH=$(echo "$ISSUE_BODY" | awk -v RS= '/^### Default Branch/ {print $2}')
-      #     INCLUDE_README=$(echo "$ISSUE_BODY" | awk -v RS= '/^### Include README/ {print $2}')
-
-      #     # Debugging Output
-      #     echo "Extracted Repository Name: '$REPO_NAME'"
-      #     echo "Extracted Branch: '$BRANCH'"
-      #     echo "Extracted Include README: '$INCLUDE_README'"
-
-      #     # Ensure default values if missing
-      #     if [ -z "$REPO_NAME" ]; then echo "Error: Repository Name is required"; exit 1; fi
-      #     if [ -z "$BRANCH" ]; then BRANCH="main"; fi
-
-      #     echo "REPO_NAME=$REPO_NAME" >> $GITHUB_ENV
-      #     echo "BRANCH=$BRANCH" >> $GITHUB_ENV
-      #     echo "INCLUDE_README=$INCLUDE_README" >> $GITHUB_ENV
-      - name: Parse Issue Details
-        id: debug
+      - name: Parse Issue Details (Debug)
         run: |
-          ISSUE_BODY=$(jq -r '.issue.body' "$GITHUB_EVENT_PATH")
-
-          # Print the full issue body to debug formatting issues
           echo "Full ISSUE_BODY content:"
-          echo "$ISSUE_BODY"
-
+          jq -r '.issue.body' "$GITHUB_EVENT_PATH"
 
       - name: Parse Issue Details
         id: parse
         run: |
           ISSUE_BODY=$(jq -r '.issue.body' "$GITHUB_EVENT_PATH")
-      
-          # Debug: Print the full issue body
-          echo "Full ISSUE_BODY content:"
-          echo "$ISSUE_BODY"
-      
-          # Extract values by looking for the header and getting the next non-empty line
+
           REPO_NAME=$(echo "$ISSUE_BODY" | awk -F'\n' '/^### Repository Name$/{getline; getline; print $0}' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
           BRANCH=$(echo "$ISSUE_BODY" | awk -F'\n' '/^### Default Branch$/{getline; getline; print $0}' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
           INCLUDE_README=$(echo "$ISSUE_BODY" | awk -F'\n' '/^### Include README$/{getline; getline; print $0}' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
-      
-          # Debugging Output
+          VISIBILITY=$(echo "$ISSUE_BODY" | awk -F'\n' '/^### Repository Visibility$/{getline; getline; print $0}' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+
           echo "Extracted Repository Name: '$REPO_NAME'"
           echo "Extracted Branch: '$BRANCH'"
           echo "Extracted Include README: '$INCLUDE_README'"
-      
-          # Ensure default values if missing
+          echo "Extracted Visibility: '$VISIBILITY'"
+
           if [ -z "$REPO_NAME" ]; then echo "Error: Repository Name is required"; exit 1; fi
           if [ -z "$BRANCH" ]; then BRANCH="main"; fi
-      
+          if [ -z "$VISIBILITY" ]; then VISIBILITY="private"; fi
+
           echo "REPO_NAME=$REPO_NAME" >> $GITHUB_ENV
           echo "BRANCH=$BRANCH" >> $GITHUB_ENV
           echo "INCLUDE_README=$INCLUDE_README" >> $GITHUB_ENV
-
+          echo "VISIBILITY=$VISIBILITY" >> $GITHUB_ENV
 
       - name: Set Git Identity
         run: |
@@ -91,11 +60,10 @@ jobs:
           cd repos/${{ env.REPO_NAME }}
           git init -b ${{ env.BRANCH }}
 
-          # Ensure at least one file exists before committing
           if [[ "${{ env.INCLUDE_README }}" == "Yes" ]]; then
             echo "# ${{ env.REPO_NAME }}" > README.md
           else
-            touch .gitkeep  # Create a placeholder file if README is not included
+            touch .gitkeep
           fi
 
           git add .
@@ -107,8 +75,6 @@ jobs:
           git add .
           git commit -m "Add repository structure for ${{ env.REPO_NAME }}" || echo "No changes to commit"
 
-
-
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v6
         with:
@@ -119,6 +85,6 @@ jobs:
             - **Name**: ${{ env.REPO_NAME }}
             - **Default Branch**: ${{ env.BRANCH }}
             - **Include README**: ${{ env.INCLUDE_README }}
+            - **Repository Visibility**: ${{ env.VISIBILITY }}
           branch: "create-${{ env.REPO_NAME }}"
           labels: "repo-creation"
-          #reviewers: ${{ github.actor }}

@@ -33,3 +33,14 @@ body:
         - "No"
     validations:
       required: true
+  - type: dropdown
+    id: visibility
+    attributes:
+      label: "Repository Visibility"
+      description: "Choose the visibility of the repository."
+      options:
+        - "private"
+        - "internal"
+        - "public"
+    validations:
+      required: true

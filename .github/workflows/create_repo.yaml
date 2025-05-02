@@ -1,10 +1,8 @@
-# .github/workflows/create-repo-after-merge.yml
 name: Create Repository After PR Merge
 
 on:
   pull_request:
     types: [closed]
-
 
 jobs:
   create_repo:
@@ -12,6 +10,7 @@ jobs:
         github.event.pull_request.merged == true &&
         contains(github.event.pull_request.labels.*.name, 'repo-creation')   
     runs-on: ubuntu-latest
+
     steps:
       - name: Extract PR Details
         id: extract
@@ -22,10 +21,24 @@ jobs:
           REPO_NAME=$(echo "$PR_BODY" | grep -oP '(?<=- \*\*Name\*\*: ).*')
           BRANCH=$(echo "$PR_BODY" | grep -oP '(?<=- \*\*Default Branch\*\*: ).*')
           INCLUDE_README=$(echo "$PR_BODY" | grep -oP '(?<=- \*\*Include README\*\*: ).*')
+          VISIBILITY=$(echo "$PR_BODY" | grep -oP '(?<=- \*\*Visibility\*\*: ).*')
 
           echo "REPO_NAME=$REPO_NAME" >> $GITHUB_ENV
           echo "BRANCH=$BRANCH" >> $GITHUB_ENV
           echo "INCLUDE_README=$INCLUDE_README" >> $GITHUB_ENV
+          echo "VISIBILITY=$VISIBILITY" >> $GITHUB_ENV
+
+      - name: Set Repository Visibility
+        id: visibility
+        run: |
+          # Translate visibility to private: true/false
+          if [[ "$VISIBILITY" == "public" ]]; then
+            echo "REPO_VISIBILITY=false" >> $GITHUB_ENV
+          elif [[ "$VISIBILITY" == "private" || "$VISIBILITY" == "internal" ]]; then
+            echo "REPO_VISIBILITY=true" >> $GITHUB_ENV
+          else
+            echo "Error: Invalid visibility option" && exit 1
+          fi
 
       - name: Create Repository
         uses: actions/github-script@v6
@@ -38,7 +51,7 @@ jobs:
               await github.rest.repos.createInOrg({
                 org: context.repo.owner,
                 name: process.env.REPO_NAME,
-                private: false,
+                private: process.env.REPO_VISIBILITY === 'true',  // If true, it's private; if false, it's public
                 auto_init: true,
                 license_template: 'mit'
               });
