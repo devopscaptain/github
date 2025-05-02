@@ -3,7 +3,7 @@ name: Create Team
 on:
   pull_request:
     types: [closed]
-    path:
+    paths:
       - 'team-name.txt'
 
 jobs:

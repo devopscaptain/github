@@ -77,7 +77,7 @@ jobs:
             Generated from issue #${{ github.event.issue.number }}
           branch: "team-request/${{ github.event.issue.number }}"
           labels: "team-creation"
-          path: |
+          paths: |
             team-name.txt
 
       - name: Post a message in Slack
