@@ -3,7 +3,7 @@ name: Create Team
 on:
   pull_request:
     types: [closed]
-    paths:
+    path:
       - 'team-name.txt'
 
 jobs:
@@ -144,7 +144,11 @@ jobs:
               });
             }
 
-      - name: Cleanup - Remove team-name.txt from Repo
+      - name: Cleanup - Remove team-name.txt from 
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        with:
+          github-token: ${{ secrets.GH_PAT }}
         if: success()
         run: |
           echo "Cleaning up and removing team-name.txt from repository..."
