@@ -13,7 +13,8 @@ jobs:
       contains(github.event.pull_request.labels.*.name, 'team-creation')
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
+      pull-requests: write
 
     steps:
       - name: Checkout Repository
@@ -68,30 +69,31 @@ jobs:
           script: |
             try {
               const teamSlug = process.env.TEAM_NAME.toLowerCase().replace(/[^a-z0-9-]/g, '-');
+              let parentTeamId = undefined;
+
+              if (process.env.PARENT_TEAM) {
+                try {
+                  const { data: parent } = await github.rest.teams.getByName({
+                    org: context.repo.owner,
+                    team_slug: process.env.PARENT_TEAM.toLowerCase().replace(/[^a-z0-9-]/g, '-')
+                  });
+                  parentTeamId = parent.id;
+                  console.log(`Found parent team ${process.env.PARENT_TEAM} with ID ${parentTeamId}`);
+                } catch (err) {
+                  console.warn(`Could not find parent team '${process.env.PARENT_TEAM}': ${err.message}`);
+                }
+              }
+
               const { data: team } = await github.rest.teams.create({
                 org: context.repo.owner,
                 name: process.env.TEAM_NAME,
                 slug: teamSlug,
                 description: process.env.DESCRIPTION,
                 privacy: process.env.PRIVACY,
+                ...(parentTeamId && { parent_team_id: parentTeamId })
               });
 
               console.log(`Team ${team.name} created successfully`);
-
-              // Add the Parent Team logic if a parent team is specified
-              if (process.env.PARENT_TEAM) {
-                try {
-                  await github.rest.teams.addOrUpdateMembershipForTeamInOrg({
-                    org: context.repo.owner,
-                    team_slug: process.env.PARENT_TEAM.toLowerCase().replace(/[^a-z0-9-]/g, '-'),
-                    team_id: team.id,
-                    role: 'member'
-                  });
-                  console.log(`Assigned ${process.env.PARENT_TEAM} as parent for team ${team.name}`);
-                } catch (parentError) {
-                  console.warn(`Failed to assign parent team ${process.env.PARENT_TEAM}: ${parentError.message}`);
-                }
-              }
 
               const addMembers = async (userList, role) => {
                 if (!userList || userList === 'none') return;
@@ -144,24 +146,3 @@ jobs:
               });
             }
 
-      - name: Cleanup - Remove team-name.txt from 
-        env:
-          GH_TOKEN: ${{ secrets.GH_PAT }}
-        with:
-          github-token: ${{ secrets.GH_PAT }}
-        if: success()
-        run: |
-          echo "Cleaning up and removing team-name.txt from repository..."
-                    # Set up Git user for the push (you can skip this if you're using a PAT)
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git config --global user.name "github-actions[bot]"
-          # Remove the file from Git tracking
-          git rm -f team-name.txt
-
-          # Commit the removal
-          git commit -m "Remove team-name.txt after team creation"
-
-          # Push changes back to the repository
-          git push origin ${GITHUB_REF}
-
-          echo "File team-name.txt removed from the repository."
