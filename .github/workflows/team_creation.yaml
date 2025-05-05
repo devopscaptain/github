@@ -37,23 +37,29 @@ jobs:
 
           PR_BODY=$(echo '${{ toJSON(github.event.pull_request.body) }}' | jq -r .)
           PRIVACY=$(echo "$PR_BODY" | grep -oP '(?<=Visibility:\*\* ).*' | head -1 | xargs | tr '[:upper:]' '[:lower:]')
-          if [[ "$PRIVACY" == "visible" ]]; then PRIVACY="closed"; elif [[ "$PRIVACY" == "secret" ]]; then PRIVACY="secret"; else
+
+          if [[ "$PRIVACY" == "visible" ]]; then
+            PRIVACY="closed"
+          elif [[ "$PRIVACY" == "secret" ]]; then
+            PRIVACY="secret"
+          else
             echo "::error::Invalid visibility option: '$PRIVACY'"
             exit 1
           fi
+
           DESCRIPTION=$(echo "$PR_BODY" | grep -oP '(?<=Purpose:\*\* ).*' | head -1 | xargs)
           MAINTAINERS=$(echo "$PR_BODY" | grep -oP '(?<=Maintainers:\*\* ).*' | head -1 | sed 's/none//' | xargs | sed 's/^,*//;s/,*$//')
           MEMBERS=$(echo "$PR_BODY" | grep -oP '(?<=Team Members:\*\* ).*' | head -1 | sed 's/none//' | xargs | sed 's/^,*//;s/,*$//')
           PARENT_TEAM=$(echo "$PR_BODY" | grep -oP '(?<=Parent Team:\*\* ).*' | head -1 | xargs)
 
           echo "TEAM_NAME=$TEAM_NAME" >> $GITHUB_ENV
-          echo "PARENT_TEAM=${PARENT_TEAM}" >> $GITHUB_ENV
+          echo "PARENT_TEAM=${PARENT_TEAM:-none}" >> $GITHUB_ENV
           echo "PRIVACY=$PRIVACY" >> $GITHUB_ENV
           echo "DESCRIPTION=${DESCRIPTION:-Team created via automation}" >> $GITHUB_ENV
           echo "MAINTAINERS=${MAINTAINERS:-none}" >> $GITHUB_ENV
           echo "MEMBERS=${MEMBERS:-none}" >> $GITHUB_ENV
 
-      - name: Create or Update GitHub Team
+      - name: Create GitHub Team
         uses: actions/github-script@v6
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
@@ -62,83 +68,93 @@ jobs:
           script: |
             const teamSlug = process.env.TEAM_NAME.toLowerCase().replace(/[^a-z0-9-]/g, '-');
             const org = context.repo.owner;
-            let team;
-            let teamExists = false;
+            const description = process.env.DESCRIPTION;
+            const privacy = process.env.PRIVACY;
+            const parentTeamName = process.env.PARENT_TEAM;
+            const maintainers = process.env.MAINTAINERS;
+            const members = process.env.MEMBERS;
             let parentTeamId;
 
+            const commentLines = [];
+
             try {
-              // Try fetching the team
-              const { data: existingTeam } = await github.rest.teams.getByName({
-                org,
-                team_slug: teamSlug,
-              });
-              team = existingTeam;
-              teamExists = true;
-              console.log(`Team ${team.name} already exists. Will update members.`);
-            } catch (err) {
-              console.log(`Team does not exist. Proceeding to create.`);
-              if (process.env.PARENT_TEAM) {
-                try {
-                  const { data: parent } = await github.rest.teams.getByName({
-                    org,
-                    team_slug: process.env.PARENT_TEAM.toLowerCase().replace(/[^a-z0-9-]/g, '-'),
-                  });
-                  parentTeamId = parent.id;
-                  console.log(`Found parent team ${process.env.PARENT_TEAM} with ID ${parentTeamId}`);
-                } catch (err) {
-                  console.warn(`Could not find parent team '${process.env.PARENT_TEAM}': ${err.message}`);
+              // Check if team exists
+              let team;
+              try {
+                const { data } = await github.rest.teams.getByName({ org, team_slug: teamSlug });
+                team = data;
+                console.log(`Team '${teamSlug}' already exists.`);
+              } catch {
+                // Get parent ID if provided
+                if (parentTeamName && parentTeamName !== 'none') {
+                  try {
+                    const { data: parent } = await github.rest.teams.getByName({
+                      org,
+                      team_slug: parentTeamName.toLowerCase().replace(/[^a-z0-9-]/g, '-')
+                    });
+                    parentTeamId = parent.id;
+                  } catch (err) {
+                    console.warn(`Parent team '${parentTeamName}' not found.`);
+                  }
                 }
+
+                const { data } = await github.rest.teams.create({
+                  org,
+                  name: process.env.TEAM_NAME,
+                  slug: teamSlug,
+                  description,
+                  privacy,
+                  ...(parentTeamId && { parent_team_id: parentTeamId })
+                });
+                team = data;
+                console.log(`✅ Team '${team.name}' created.`);
               }
 
-              // Create team if not exists
-              const { data: createdTeam } = await github.rest.teams.create({
-                org,
-                name: process.env.TEAM_NAME,
-                slug: teamSlug,
-                description: process.env.DESCRIPTION,
-                privacy: process.env.PRIVACY,
-                ...(parentTeamId && { parent_team_id: parentTeamId }),
+              // Add members
+              const addMembers = async (userList, role) => {
+                if (!userList || userList === 'none') return;
+                const users = userList.split(',').map(u => u.trim()).filter(Boolean);
+                for (const username of users) {
+                  try {
+                    await github.rest.teams.addOrUpdateMembershipForUserInOrg({
+                      org,
+                      team_slug: team.slug,
+                      username,
+                      role
+                    });
+                    console.log(`Added ${role}: ${username}`);
+                  } catch (error) {
+                    console.warn(`❌ Failed to add ${username} as ${role}: ${error.message}`);
+                  }
+                }
+              };
+
+              await addMembers(maintainers, 'maintainer');
+              await addMembers(members, 'member');
+
+              commentLines.push(`✅ Team **${team.name}** created or updated successfully`);
+              commentLines.push(`• Visibility: ${privacy}`);
+              commentLines.push(`• Description: ${description}`);
+              if (parentTeamName !== 'none') commentLines.push(`• Parent Team: ${parentTeamName}`);
+              if (maintainers !== 'none') commentLines.push(`• Maintainers: ${maintainers.replace(/,/g, ', ')}`);
+              if (members !== 'none') commentLines.push(`• Members: ${members.replace(/,/g, ', ')}`);
+
+              await github.rest.issues.createComment({
+                issue_number: context.payload.pull_request.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: commentLines.join('\n')
               });
-              team = createdTeam;
-              console.log(`Team ${team.name} created successfully.`);
+
+            } catch (error) {
+              core.setFailed(`❌ Team creation failed: ${error.message}`);
+              await github.rest.issues.createComment({
+                issue_number: context.payload.pull_request.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: `❌ Failed to create team: ${error.message}`
+              });
             }
-
-            const addMembers = async (userList, role) => {
-              if (!userList || userList === 'none') return;
-              const users = userList.split(',').map(u => u.trim()).filter(Boolean);
-              for (const username of users) {
-                try {
-                  await github.rest.teams.addOrUpdateMembershipForUserInOrg({
-                    org,
-                    team_slug: team.slug,
-                    username,
-                    role,
-                  });
-                  console.log(`Added ${username} as ${role}`);
-                } catch (error) {
-                  console.warn(`Failed to add ${username} as ${role}: ${error.message}`);
-                }
-              }
-            };
-
-            await addMembers(process.env.MAINTAINERS, 'maintainer');
-            await addMembers(process.env.MEMBERS, 'member');
-
-            const commentLines = [
-              teamExists ? `🔁 Team **${team.name}** already existed.` : `✅ Team **${team.name}** created!`,
-              `• Visibility: ${process.env.PRIVACY}`,
-              `• Description: ${process.env.DESCRIPTION}`,
-            ];
-            if (process.env.PARENT_TEAM !== 'none') commentLines.push(`• Parent Team: ${process.env.PARENT_TEAM}`);
-            if (process.env.MAINTAINERS !== 'none') commentLines.push(`• Maintainers: ${process.env.MAINTAINERS.replace(/,/g, ', ')}`);
-            if (process.env.MEMBERS !== 'none') commentLines.push(`• Members: ${process.env.MEMBERS.replace(/,/g, ', ')}`);
-
-            await github.rest.issues.createComment({
-              issue_number: context.payload.pull_request.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: commentLines.join('\n')
-            });
 
       - name: Clean up team-name.txt
         env:
@@ -146,7 +162,7 @@ jobs:
         run: |
           git config --global user.name "github-actions"
           git config --global user.email "github-actions@github.com"
-          
+
           if [ -f team-name.txt ]; then
             echo "Deleting team-name.txt..."
             git rm team-name.txt
