@@ -1,6 +1,6 @@
 name: Team Request
 description: Request a new GitHub team
-title: "[Team] TEAM-Name"
+title: "[TEAM] TEAM-Name"
 labels: ["team-request"]
 body:
   - type: input
@@ -11,8 +11,18 @@ body:
       placeholder: "TEAM-backend"
     validations:
       required: true
-      pattern: "^TEAM-[a-zA-Z0-9_-]{3,20}$"
-  
+      pattern: "^TEAM-[a-zA-Z0-9_-]{1,20}$"
+
+  - type: input
+    id: parent_team
+    attributes:
+      label: "Parent Team (optional)"
+      description: "Provide the parent team name (must exist in the org)"
+      placeholder: "team-platform"
+    validations:
+      required: false
+      pattern: "^[a-zA-Z0-9_-]*$"
+
   - type: dropdown
     id: visibility
     attributes:
@@ -26,7 +36,7 @@ body:
     attributes:
       label: "Purpose"
     validations:
-      required: true
+      required: false
 
   - type: input
     id: maintainers
@@ -35,7 +45,7 @@ body:
       description: "Include GitHub usernames or teams (e.g., user1,@org/team1)"
       placeholder: "user1,user2,@org/team1"
     validations:
-      required: true
+      required: false
       pattern: "^(@?[a-z0-9_.-]+(/[a-z0-9_.-]+)?)(,\\s*@?[a-z0-9_.-]+(/[a-z0-9_.-]+)?)*$"
 
   - type: input
@@ -47,13 +57,3 @@ body:
     validations:
       required: false
       pattern: "^(@?[a-z0-9_.-]+(/[a-z0-9_.-]+)?)(,\\s*@?[a-z0-9_.-]+(/[a-z0-9_.-]+)?)*$"
-
-  - type: input
-    id: parent_team
-    attributes:
-      label: "Parent Team (optional)"
-      description: "If this team should be nested under another, provide the parent team's slug"
-      placeholder: "team-platform"
-    validations:
-      required: false
-      pattern: "^[a-zA-Z0-9_-]*$"

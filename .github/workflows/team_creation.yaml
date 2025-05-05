@@ -5,16 +5,11 @@ on:
     types: [closed]
     paths:
       - 'team-name.txt'
-
+    branches: [main]  # Specify your main branch
 jobs:
   create_team:
-    if: |
-      github.event.pull_request.merged == true &&
-      contains(github.event.pull_request.labels.*.name, 'team-creation')
+    if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      pull-requests: write
 
     steps:
       - name: Checkout Repository
@@ -25,40 +20,47 @@ jobs:
       - name: Extract Team Details
         id: extract
         run: |
+          # Ensure team-name.txt exists
           if [ ! -f team-name.txt ]; then
             echo "::error::team-name.txt not found!"
             exit 1
           fi
-
+          # Read and clean team name
           TEAM_NAME=$(cat team-name.txt | sed 's/[`]//g' | xargs)
-
+          # Validate team name format
           if [[ ! "$TEAM_NAME" =~ ^TEAM-[a-zA-Z0-9_-]+$ ]]; then
             echo "::error::Invalid team name format: '$TEAM_NAME'"
             exit 1
           fi
-
-          PR_BODY=$(echo '${{ toJSON(github.event.pull_request.body) }}' | jq -r .)
-
+          # Extract details from PR body (removing markdown formatting)
+           PR_BODY=$(echo '${{ toJSON(github.event.pull_request.body) }}' | jq -r .)
           PRIVACY=$(echo "$PR_BODY" | grep -oP '(?<=Visibility:\*\* ).*' | head -1 | xargs | tr '[:upper:]' '[:lower:]')
+          if [[ "$PRIVACY" == "visible" ]]; then
+            PRIVACY="closed"
+          elif [[ "$PRIVACY" == "secret" ]]; then
+            PRIVACY="secret"
+          else
+            echo "::error::Invalid visibility option: '$PRIVACY'"
+            exit 1
+          fi
           DESCRIPTION=$(echo "$PR_BODY" | grep -oP '(?<=Purpose:\*\* ).*' | head -1 | xargs)
           MAINTAINERS=$(echo "$PR_BODY" | grep -oP '(?<=Maintainers:\*\* ).*' | head -1 | sed 's/none//' | xargs | sed 's/^,*//;s/,*$//')
           MEMBERS=$(echo "$PR_BODY" | grep -oP '(?<=Team Members:\*\* ).*' | head -1 | sed 's/none//' | xargs | sed 's/^,*//;s/,*$//')
           PARENT_TEAM=$(echo "$PR_BODY" | grep -oP '(?<=Parent Team:\*\* ).*' | head -1 | xargs)
-
+          # Set outputs
           echo "TEAM_NAME=$TEAM_NAME" >> $GITHUB_ENV
-          echo "PRIVACY=${PRIVACY:-secret}" >> $GITHUB_ENV
+          echo "PARENT_TEAM=${PARENT_TEAM}" >> $GITHUB_ENV
+          echo "PRIVACY=$PRIVACY" >> $GITHUB_ENV
           echo "DESCRIPTION=${DESCRIPTION:-Team created via automation}" >> $GITHUB_ENV
           echo "MAINTAINERS=${MAINTAINERS:-none}" >> $GITHUB_ENV
           echo "MEMBERS=${MEMBERS:-none}" >> $GITHUB_ENV
-          echo "PARENT_TEAM=${PARENT_TEAM}" >> $GITHUB_ENV
-
           echo "Extracted values:"
           echo "Team: $TEAM_NAME"
+          echo "Parent Team: $PARENT_TEAM"
           echo "Privacy: $PRIVACY"
           echo "Description: $DESCRIPTION"
           echo "Maintainers: $MAINTAINERS"
           echo "Team Members: $MEMBERS"
-          echo "Parent Team: $PARENT_TEAM"
 
       - name: Create GitHub Team
         uses: actions/github-script@v6
@@ -122,6 +124,10 @@ jobs:
                 `• Description: ${process.env.DESCRIPTION}`,
               ];
 
+              if (process.env.PARENT_TEAM !== 'none') {
+                commentLines.push(`• Parent Team: ${process.env.PARENT_TEAM}`);
+              }
+
               if (process.env.MAINTAINERS !== 'none') {
                 commentLines.push(`• Maintainers: ${process.env.MAINTAINERS.replace(/,/g, ', ')}`);
               }
@@ -146,3 +152,17 @@ jobs:
               });
             }
 
+      - name: Clean up team-name.txt
+        run: |
+          git config --global user.name "github-actions"
+          git config --global user.email "github-actions@github.com"
+
+          if [ -f team-name.txt ]; then
+            echo "Deleting team-name.txt..."
+            git rm team-name.txt
+            git commit -m "Cleanup: remove team-name.txt after team creation"
+            git push origin HEAD
+            echo "✅ team-name.txt deleted and changes pushed."
+          else
+            echo "::warning::team-name.txt not found to delete."
+          fi

@@ -1,36 +1,136 @@
-name: Create Team PR
+name: Route Issue to Repo or Team PR
 
 on:
   issues:
-    types: [labeled]
+    types: [opened]
 
 permissions:
   contents: write
   pull-requests: write
 
 jobs:
-  create_pr:
-    if: |
-      github.event.issue.labels && contains(join(github.event.issue.labels.*.name, ','), 'team-request')
+  process_repo_or_team_request:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Extract Team Details
-        id: extract
+      - name: Determine Request Type
+        id: classify
         run: |
+          TITLE="${{ github.event.issue.title }}"
+          echo "Issue Title: $TITLE"
+          if [[ "$TITLE" == *"[Repo Request]"* ]]; then
+            echo "type=repo" >> $GITHUB_OUTPUT
+          elif [[ "$TITLE" == *"[TEAM]"* ]]; then
+            echo "type=team" >> $GITHUB_OUTPUT
+          else
+            echo "Unsupported issue type, skipping."
+            echo "type=skip" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Stop if unsupported issue
+        if: steps.classify.outputs.type == 'skip'
+        run: echo "No supported issue type found. Exiting."
+
+      - name: Process Repo Request
+        if: steps.classify.outputs.type == 'repo'
+        run: |
+          ISSUE_BODY=$(jq -r '.issue.body' "$GITHUB_EVENT_PATH")
+
+          # Print the full issue body to debug formatting issues
+          echo "Full ISSUE_BODY content:"
+          echo "$ISSUE_BODY"
+
+
+      - name: Parse Issue Details
+        if: steps.classify.outputs.type == 'repo'
+        id: parse
+        run: |
+          ISSUE_BODY=$(jq -r '.issue.body' "$GITHUB_EVENT_PATH")
+
+          # Extract values by looking for the header and getting the next non-empty line
+          REPO_NAME=$(echo "$ISSUE_BODY" | awk -F'\n' '/^### Repository Name$/{getline; getline; print $0}' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+          VISIBILITY=$(echo "$ISSUE_BODY" | awk -F'\n' '/^### Visibility$/{getline; getline; print $0}' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+          BRANCH=$(echo "$ISSUE_BODY" | awk -F'\n' '/^### Default Branch$/{getline; getline; print $0}' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+          INCLUDE_README=$(echo "$ISSUE_BODY" | awk -F'\n' '/^### Include README$/{getline; getline; print $0}' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+
+          # Debugging Output
+          echo "Extracted Repository Name: '$REPO_NAME'"
+          echo "Extracted Visibility: '$VISIBILITY'"
+          echo "Extracted Branch: '$BRANCH'"
+          echo "Extracted Include README: '$INCLUDE_README'"
+
+          # Ensure default values if missing
+          if [ -z "$REPO_NAME" ]; then echo "Error: Repository Name is required"; exit 1; fi
+          if [ -z "$BRANCH" ]; then BRANCH="main"; fi
+
+          echo "REPO_NAME=$REPO_NAME" >> $GITHUB_ENV
+          echo "VISIBILITY=$VISIBILITY" >> $GITHUB_ENV
+          echo "BRANCH=$BRANCH" >> $GITHUB_ENV
+          echo "INCLUDE_README=$INCLUDE_README" >> $GITHUB_ENV
+
+      - name: Set Git Identity
+        if: steps.classify.outputs.type == 'repo'
+        run: |
+          git config --global user.name "github-actions"
+          git config --global user.email "github-actions@github.com"
+
+      - name: Create Repository Structure
+        if: steps.classify.outputs.type == 'repo'
+        run: |
+          mkdir -p repos/${{ env.REPO_NAME }}
+          cd repos/${{ env.REPO_NAME }}
+          git init -b ${{ env.BRANCH }}
+
+          # Ensure at least one file exists before committing
+          if [[ "${{ env.INCLUDE_README }}" == "Yes" ]]; then
+            echo "# ${{ env.REPO_NAME }}" > README.md
+          else
+            touch .gitkeep  # Create a placeholder file if README is not included
+          fi
+
+          git add .
+          git commit -m "Initial commit for ${{ env.REPO_NAME }}"
+
+      - name: Commit Changes
+        if: steps.classify.outputs.type == 'repo'
+        run: |
+          cd repos/${{ env.REPO_NAME }}
+          git add .
+          git commit -m "Add repository structure for ${{ env.REPO_NAME }}" || echo "No changes to commit"
+
+      - name: Create Pull Request for Repository
+        if: steps.classify.outputs.type == 'repo'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GH_PAT }}
+          title: "Create new repository: ${{ env.REPO_NAME }}"
+          body: |
+            Repository Details:
+            - **Name**: ${{ env.REPO_NAME }}
+            - **Visibility**: ${{ env.VISIBILITY }}
+            - **Default Branch**: ${{ env.BRANCH }}
+            - **Include README**: ${{ env.INCLUDE_README }}
+          branch: "create-${{ env.REPO_NAME }}"
+
+      - name: Process Team Request
+        if: steps.classify.outputs.type == 'team'
+        run: |
+          # Extract issue body from GitHub event
           ISSUE_BODY="${{ github.event.issue.body }}"
 
+          # Debugging: Print the issue body
           echo "Issue Body:"
           echo "$ISSUE_BODY"
 
           TEAM_NAME=$(echo "$ISSUE_BODY" | awk '/^### Team Name$/{getline; getline; print}' | sed 's/[`]//g' | xargs)
+          PARENT_TEAM=$(echo "$ISSUE_BODY" | awk '/^### Parent Team \(optional\)$/{getline; getline; print}' | sed 's/[`]//g' | xargs)
           VISIBILITY=$(echo "$ISSUE_BODY" | awk '/^### Visibility$/{getline; getline; print}' | sed 's/[`]//g' | xargs)
           PURPOSE=$(echo "$ISSUE_BODY" | awk '/^### Purpose$/{getline; getline; print}' | sed 's/[`]//g' | xargs)
           MAINTAINERS=$(echo "$ISSUE_BODY" | awk '/^### Maintainers \(comma-separated\)$/{getline; getline; print}' | sed 's/[`]//g' | xargs)
           TEAM_MEMBERS=$(echo "$ISSUE_BODY" | awk '/^### Team Members \(comma-separated\)$/{getline; getline; print}' | sed 's/[`]//g' | xargs)
-          PARENT_TEAM=$(echo "$ISSUE_BODY" | awk '/^### Parent Team \(optional\)$/{getline; getline; print}' | sed 's/[`]//g' | xargs)
 
           echo "Extracted Values:"
           echo "Team Name: '$TEAM_NAME'"
@@ -38,8 +138,9 @@ jobs:
           echo "Purpose: '$PURPOSE'"
           echo "Maintainers: '$MAINTAINERS'"
           echo "Team Members: '$TEAM_MEMBERS'"
-          echo "Parent Team: '$PARENT_TEAM'"
-          if [[ ! "$TEAM_NAME" =~ ^TEAM-[a-zA-Z0-9_-]{3,20}$ ]]; then
+          echo "parent_team=$PARENT_TEAM" >> "$GITHUB_ENV"
+
+          if [[ ! "$TEAM_NAME" =~ ^TEAM-[a-zA-Z0-9_-]{1,20}$ ]]; then
             echo "::error::Invalid team name format: '$TEAM_NAME'"
             exit 1
           fi
@@ -50,7 +151,6 @@ jobs:
           TEAM_MEMBERS=${TEAM_MEMBERS:-none}
           PARENT_TEAM=${PARENT_TEAM:-none}
 
-
           echo "$TEAM_NAME" > team-name.txt
           echo "team_name=$TEAM_NAME" >> "$GITHUB_ENV"
           echo "visibility=$VISIBILITY" >> "$GITHUB_ENV"
@@ -59,8 +159,8 @@ jobs:
           echo "team_members=$TEAM_MEMBERS" >> "$GITHUB_ENV"
           echo "parent_team=$PARENT_TEAM" >> "$GITHUB_ENV"
 
-
-      - name: Create Pull Request
+      - name: Create Pull Request for Team
+        if: steps.classify.outputs.type == 'team'
         uses: peter-evans/create-pull-request@v5
         with:
           token: ${{ secrets.GH_PAT }}
@@ -69,16 +169,19 @@ jobs:
           body: |
             ### Team Creation Request
             **Team Name:** ${{ env.team_name }}
+            **Parent Team:** ${{ env.parent_team }}
             **Visibility:** ${{ env.visibility }}
             **Purpose:** ${{ env.purpose }}
-            **Parent Team:** ${{ env.parent_team }}
             **Maintainers:** ${{ env.maintainers }}
             **Team Members:** ${{ env.team_members }}
+
             Generated from issue #${{ github.event.issue.number }}
           branch: "team-request/${{ github.event.issue.number }}"
           labels: "team-creation"
           paths: |
             team-name.txt
+
+
 
       - name: Post a message in Slack
         uses: slackapi/slack-github-action@v2.0.0
