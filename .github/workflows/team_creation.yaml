@@ -5,7 +5,9 @@ on:
     types: [closed]
     paths:
       - 'team-name.txt'
-    branches: [main]  # Specify your main branch
+    branches: [main]
+permissions:
+  contents: write    # Specify your main branch
 jobs:
   create_team:
     if: github.event.pull_request.merged == true
