@@ -153,16 +153,20 @@ jobs:
             }
 
       - name: Clean up team-name.txt
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
           git config --global user.name "github-actions"
           git config --global user.email "github-actions@github.com"
-
+          
           if [ -f team-name.txt ]; then
             echo "Deleting team-name.txt..."
             git rm team-name.txt
             git commit -m "Cleanup: remove team-name.txt after team creation"
+            git remote set-url origin https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}
             git push origin HEAD
             echo "✅ team-name.txt deleted and changes pushed."
           else
             echo "::warning::team-name.txt not found to delete."
           fi
+
