@@ -57,3 +57,14 @@ body:
     validations:
       required: false
       pattern: "^(@?[a-z0-9_.-]+(/[a-z0-9_.-]+)?)(,\\s*@?[a-z0-9_.-]+(/[a-z0-9_.-]+)?)*$"
+
+
+  - type: input
+    id: full_name
+    attributes:
+      label: "GitHub User Full Name"
+      description: "Provide your full name"
+      placeholder: "John Doe"
+    validations:
+      required: true
+      pattern: "^[A-Za-z ,.'-]{3,100}$"     
