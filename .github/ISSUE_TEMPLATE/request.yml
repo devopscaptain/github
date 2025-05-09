@@ -3,15 +3,26 @@ description: "Request a new GitHub repository"
 title: "[Repo Request] <Your Repository Name>"
 labels: [repo-creation]
 body:
+  - type: dropdown
+    id: team_naming
+    attributes:
+      label: "Team Naming Convention"
+      description: "Select the prefix based on your team or organization."
+      options:
+        - "lifeworks"
+        - "telushealth"
+    validations:
+      required: true
+
   - type: input
     id: repo_name
     attributes:
       label: "Repository Name"
-      description: "Enter the name of the new repository."
+      description: "Enter the name of the new repository. Prefix will be added based on team naming convention."
       placeholder: "my-awesome-repo"
     validations:
       required: true
-  
+
   - type: dropdown
     id: default_branch
     attributes:
@@ -22,7 +33,7 @@ body:
         - "develop"
     validations:
       required: true
-  
+
   - type: dropdown
     id: include_readme
     attributes:
@@ -33,6 +44,7 @@ body:
         - "No"
     validations:
       required: true
+
   - type: dropdown
     id: visibility
     attributes:
