@@ -30,21 +30,34 @@ jobs:
         run: |
           ISSUE_BODY=$(jq -r '.issue.body' "$GITHUB_EVENT_PATH")
 
+          TEAM_NAMING=$(echo "$ISSUE_BODY" | awk -F'\n' '/^### Team Naming Convention$/{getline; getline; print $0}' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
           REPO_NAME=$(echo "$ISSUE_BODY" | awk -F'\n' '/^### Repository Name$/{getline; getline; print $0}' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
           BRANCH=$(echo "$ISSUE_BODY" | awk -F'\n' '/^### Default Branch$/{getline; getline; print $0}' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
           INCLUDE_README=$(echo "$ISSUE_BODY" | awk -F'\n' '/^### Include README$/{getline; getline; print $0}' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
           VISIBILITY=$(echo "$ISSUE_BODY" | awk -F'\n' '/^### Repository Visibility$/{getline; getline; print $0}' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
 
-          echo "Extracted Repository Name: '$REPO_NAME'"
-          echo "Extracted Branch: '$BRANCH'"
-          echo "Extracted Include README: '$INCLUDE_README'"
-          echo "Extracted Visibility: '$VISIBILITY'"
+          if [ "$TEAM_NAMING" = "lifeworks" ]; then
+            TEAM_PREFIX="LW"
+          elif [ "$TEAM_NAMING" = "telushealth" ]; then
+            TEAM_PREFIX="TH"
+          else
+            echo "Error: Unknown team naming convention"
+            exit 1
+          fi
 
-          if [ -z "$REPO_NAME" ]; then echo "Error: Repository Name is required"; exit 1; fi
-          if [ -z "$BRANCH" ]; then BRANCH="main"; fi
-          if [ -z "$VISIBILITY" ]; then VISIBILITY="private"; fi
+          FULL_REPO_NAME="${TEAM_PREFIX}-${REPO_NAME}"
 
+          echo "Extracted Team Naming: '$TEAM_NAMING'"
+          echo "Team Prefix: '$TEAM_PREFIX'"
+          echo "Full Repository Name: '$FULL_REPO_NAME'"
+          echo "Branch: '$BRANCH'"
+          echo "Include README: '$INCLUDE_README'"
+          echo "Visibility: '$VISIBILITY'"
+
+          echo "TEAM_NAMING=$TEAM_NAMING" >> $GITHUB_ENV
+          echo "TEAM_PREFIX=$TEAM_PREFIX" >> $GITHUB_ENV
           echo "REPO_NAME=$REPO_NAME" >> $GITHUB_ENV
+          echo "FULL_REPO_NAME=$FULL_REPO_NAME" >> $GITHUB_ENV
           echo "BRANCH=$BRANCH" >> $GITHUB_ENV
           echo "INCLUDE_README=$INCLUDE_README" >> $GITHUB_ENV
           echo "VISIBILITY=$VISIBILITY" >> $GITHUB_ENV
@@ -56,35 +69,36 @@ jobs:
 
       - name: Create Repository Structure
         run: |
-          mkdir -p repos/${{ env.REPO_NAME }}
-          cd repos/${{ env.REPO_NAME }}
+          mkdir -p repos/${{ env.FULL_REPO_NAME }}
+          cd repos/${{ env.FULL_REPO_NAME }}
           git init -b ${{ env.BRANCH }}
 
           if [[ "${{ env.INCLUDE_README }}" == "Yes" ]]; then
-            echo "# ${{ env.REPO_NAME }}" > README.md
+            echo "# ${{ env.FULL_REPO_NAME }}" > README.md
           else
             touch .gitkeep
           fi
 
           git add .
-          git commit -m "Initial commit for ${{ env.REPO_NAME }}"
+          git commit -m "Initial commit for ${{ env.FULL_REPO_NAME }}"
 
       - name: Commit Changes
         run: |
-          cd repos/${{ env.REPO_NAME }}
+          cd repos/${{ env.FULL_REPO_NAME }}
           git add .
-          git commit -m "Add repository structure for ${{ env.REPO_NAME }}" || echo "No changes to commit"
+          git commit -m "Add repository structure for ${{ env.FULL_REPO_NAME }}" || echo "No changes to commit"
 
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v6
         with:
           token: ${{ secrets.GH_PAT }}
-          title: "Create new repository: ${{ env.REPO_NAME }}"
+          title: "Create new repository: ${{ env.FULL_REPO_NAME }}"
           body: |
             Repository Details:
-            - **Name**: ${{ env.REPO_NAME }}
+            - **Name**: ${{ env.FULL_REPO_NAME }}
+            - **Team Prefix**: ${{ env.TEAM_PREFIX }}
             - **Default Branch**: ${{ env.BRANCH }}
             - **Include README**: ${{ env.INCLUDE_README }}
             - **Repository Visibility**: ${{ env.VISIBILITY }}
-          branch: "create-${{ env.REPO_NAME }}"
+          branch: "create-${{ env.FULL_REPO_NAME }}"
           labels: "repo-creation"
