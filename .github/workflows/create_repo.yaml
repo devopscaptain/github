@@ -7,31 +7,30 @@ on:
 jobs:
   create_repo:
     if: |
-        github.event.pull_request.merged == true &&
-        contains(github.event.pull_request.labels.*.name, 'repo-creation')   
+      github.event.pull_request.merged == true &&
+      contains(github.event.pull_request.labels.*.name, 'repo-creation')
     runs-on: ubuntu-latest
 
     steps:
       - name: Extract PR Details
         id: extract
         run: |
-          # Get PR body and extract details
           PR_BODY="${{ github.event.pull_request.body }}"
-          
+
           REPO_NAME=$(echo "$PR_BODY" | grep -oP '(?<=- \*\*Name\*\*: ).*')
           BRANCH=$(echo "$PR_BODY" | grep -oP '(?<=- \*\*Default Branch\*\*: ).*')
           INCLUDE_README=$(echo "$PR_BODY" | grep -oP '(?<=- \*\*Include README\*\*: ).*')
           VISIBILITY=$(echo "$PR_BODY" | grep -oP '(?<=- \*\*Visibility\*\*: ).*')
+          CODEOWNERS=$(echo "$PR_BODY" | grep -oP '(?<=- \*\*Code Owners\*\*: ).*')
 
           echo "REPO_NAME=$REPO_NAME" >> $GITHUB_ENV
           echo "BRANCH=$BRANCH" >> $GITHUB_ENV
           echo "INCLUDE_README=$INCLUDE_README" >> $GITHUB_ENV
           echo "VISIBILITY=$VISIBILITY" >> $GITHUB_ENV
+          echo "CODEOWNERS=$CODEOWNERS" >> $GITHUB_ENV
 
       - name: Set Repository Visibility
-        id: visibility
         run: |
-          # Translate visibility to private: true/false
           if [[ "$VISIBILITY" == "public" ]]; then
             echo "REPO_VISIBILITY=false" >> $GITHUB_ENV
           elif [[ "$VISIBILITY" == "private" || "$VISIBILITY" == "internal" ]]; then
@@ -43,15 +42,15 @@ jobs:
       - name: Create Repository
         uses: actions/github-script@v6
         env:
-          GH_TOKEN: ${{ secrets.GH_PAT }}  
+          GH_TOKEN: ${{ secrets.GH_PAT }}
         with:
-          github-token: ${{ secrets.GH_PAT }} 
+          github-token: ${{ secrets.GH_PAT }}
           script: |
             try {
               await github.rest.repos.createInOrg({
                 org: context.repo.owner,
                 name: process.env.REPO_NAME,
-                private: process.env.REPO_VISIBILITY === 'true',  // If true, it's private; if false, it's public
+                private: process.env.REPO_VISIBILITY === 'true',
                 auto_init: true,
                 license_template: 'mit'
               });
@@ -60,16 +59,27 @@ jobs:
               core.setFailed(`Repository creation failed: ${error}`);
             }
 
-      - name: Add README if requested
-        if: env.INCLUDE_README == 'Yes'
+      - name: Add README and CODEOWNERS if requested
         env:
-          GH_TOKEN: ${{ secrets.GH_PAT }}        
+          GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
+          git config --global user.name "github-actions"
+          git config --global user.email "actions@github.com"
+
           git clone https://${{ github.actor }}:${{ secrets.GH_PAT }}@github.com/${{ github.repository_owner }}/${{ env.REPO_NAME }}.git
-          cd ${{ env.REPO_NAME }}
-          echo "# ${{ env.REPO_NAME }}" > README.md
-          git add README.md
-          git config user.name "github-actions"
-          git config user.email "actions@github.com"
-          git commit -m "Add initial README"
+          cd "${{ env.REPO_NAME }}"
+
+          mkdir -p .github
+
+          if [[ "$INCLUDE_README" == "Yes" ]]; then
+            echo "# $REPO_NAME" > README.md
+            git add README.md
+          fi
+
+          if [[ -n "$CODEOWNERS" ]]; then
+            echo "* $CODEOWNERS" > .github/CODEOWNERS
+            git add .github/CODEOWNERS
+          fi
+
+          git commit -m "Add README and CODEOWNERS file"
           git push

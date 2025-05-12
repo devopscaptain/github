@@ -35,6 +35,7 @@ jobs:
           BRANCH=$(echo "$ISSUE_BODY" | awk -F'\n' '/^### Default Branch$/{getline; getline; print $0}' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
           INCLUDE_README=$(echo "$ISSUE_BODY" | awk -F'\n' '/^### Include README$/{getline; getline; print $0}' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
           VISIBILITY=$(echo "$ISSUE_BODY" | awk -F'\n' '/^### Repository Visibility$/{getline; getline; print $0}' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+          CODEOWNERS=$(echo "$ISSUE_BODY" | awk -F'\n' '/^### Repository Code Owner\(s\)/{getline; getline; print $0}' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
 
           if [ "$TEAM_NAMING" = "lifeworks" ]; then
             TEAM_PREFIX="LW"
@@ -53,7 +54,7 @@ jobs:
           echo "Branch: '$BRANCH'"
           echo "Include README: '$INCLUDE_README'"
           echo "Visibility: '$VISIBILITY'"
-
+          echo "Code Owners: '$CODEOWNERS'"
           echo "TEAM_NAMING=$TEAM_NAMING" >> $GITHUB_ENV
           echo "TEAM_PREFIX=$TEAM_PREFIX" >> $GITHUB_ENV
           echo "REPO_NAME=$REPO_NAME" >> $GITHUB_ENV
@@ -61,6 +62,8 @@ jobs:
           echo "BRANCH=$BRANCH" >> $GITHUB_ENV
           echo "INCLUDE_README=$INCLUDE_README" >> $GITHUB_ENV
           echo "VISIBILITY=$VISIBILITY" >> $GITHUB_ENV
+          echo "CODEOWNERS=$CODEOWNERS" >> $GITHUB_ENV
+
 
       - name: Set Git Identity
         run: |
