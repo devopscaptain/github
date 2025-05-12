@@ -159,6 +159,38 @@ jobs:
           echo "team_members=$TEAM_MEMBERS" >> "$GITHUB_ENV"
           echo "parent_team=$PARENT_TEAM" >> "$GITHUB_ENV"
 
+
+      - name: Validate GitHub Usernames
+        if: steps.classify.outputs.type == 'team'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          # Function to validate a GitHub username
+          validate_username() {
+            local username=$1
+            if curl -s -H "Authorization: token $GITHUB_TOKEN" "https://api.github.com/users/$username" | grep -q '"name":'; then
+              echo "✅ Valid GitHub user: $username"
+            else
+              echo "::error::❌ Invalid or non-existent GitHub user: $username"
+              exit 1
+            fi
+          }
+
+          echo "Validating maintainers..."
+          IFS=',' read -ra MAINTAINER_ARRAY <<< "${{ env.maintainers }}"
+          for user in "${MAINTAINER_ARRAY[@]}"; do
+            trimmed=$(echo "$user" | xargs)
+            [ "$trimmed" != "none" ] && validate_username "$trimmed"
+          done
+
+          echo "Validating team members..."
+          IFS=',' read -ra MEMBER_ARRAY <<< "${{ env.team_members }}"
+          for user in "${MEMBER_ARRAY[@]}"; do
+            trimmed=$(echo "$user" | xargs)
+            [ "$trimmed" != "none" ] && validate_username "$trimmed"
+          done
+
+
       - name: Create Pull Request for Team
         if: steps.classify.outputs.type == 'team'
         uses: peter-evans/create-pull-request@v5
