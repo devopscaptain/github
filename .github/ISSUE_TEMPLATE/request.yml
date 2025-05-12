@@ -56,3 +56,12 @@ body:
         - "public"
     validations:
       required: true
+
+  - type: textarea
+    id: code_owner
+    attributes:
+      label: "Repository Code Owner(s)"
+      description: "Provide the GitHub username(s) of the user(s) you want to add as code owners. Separate multiple usernames with commas."
+      placeholder: "e.g. @octocat, @username"
+    validations:
+      required: true
