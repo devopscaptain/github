@@ -103,5 +103,6 @@ jobs:
             - **Default Branch**: ${{ env.BRANCH }}
             - **Include README**: ${{ env.INCLUDE_README }}
             - **Repository Visibility**: ${{ env.VISIBILITY }}
+            - **Code Owner(s)**: ${{ env.CODEOWNERS }}
           branch: "create-${{ env.FULL_REPO_NAME }}"
           labels: "repo-creation"
