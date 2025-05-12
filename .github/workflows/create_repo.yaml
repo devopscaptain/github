@@ -20,8 +20,8 @@ jobs:
           REPO_NAME=$(echo "$PR_BODY" | grep -oP '(?<=- \*\*Name\*\*: ).*')
           BRANCH=$(echo "$PR_BODY" | grep -oP '(?<=- \*\*Default Branch\*\*: ).*')
           INCLUDE_README=$(echo "$PR_BODY" | grep -oP '(?<=- \*\*Include README\*\*: ).*')
-          VISIBILITY=$(echo "$PR_BODY" | grep -oP '(?<=- \*\*Visibility\*\*: ).*')
-          CODEOWNERS=$(echo "$PR_BODY" | grep -oP '(?<=- \*\*Code Owners\*\*: ).*')
+          VISIBILITY=$(echo "$PR_BODY" | grep -oP '(?<=- \*\*Repository Visibility\*\*: ).*')
+          CODEOWNERS=$(echo "$PR_BODY" | grep -oP '(?<=- \*\*Code Owner\(s\)\*\*: ).*')
 
           echo "REPO_NAME=$REPO_NAME" >> $GITHUB_ENV
           echo "BRANCH=$BRANCH" >> $GITHUB_ENV
