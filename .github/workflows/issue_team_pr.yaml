@@ -169,43 +169,48 @@ jobs:
       - name: Install jq
         run: sudo apt-get install -y jq
 
-      - name: Validate GitHub usernames with full names
+      - name: Validate GitHub usernames
+        if: env.maintainers != 'none' || env.team_members != 'none'
         shell: bash
         run: |
-          # Function to validate a GitHub username and get full name
-          validate_username_with_name() {
+          # Function to validate a GitHub username
+          validate_username() {
             local username=$1
             response=$(curl -s -H "Authorization: token $GITHUB_TOKEN" "https://api.github.com/users/$username")
-            
-            if ! echo "$response" | grep -q '"login":'; then
+            if echo "$response" | grep -q '"login":'; then
+              echo "✅ Valid GitHub user: $username"
+            else
               echo "::error::❌ Invalid or non-existent GitHub user: $username"
               echo "Response: $response"
               exit 1
             fi
-            
-            login=$(echo "$response" | jq -r '.login')
-            name=$(echo "$response" | jq -r '.name // empty')
-            
-            if [ -z "$name" ]; then
-              echo "::warning::⚠️ GitHub user $login exists but has no full name set"
-            else
-              echo "✅ Valid GitHub user: $login (Name: $name)"
-            fi
           }
 
-          echo "Validating maintainers..."
-          IFS=',' read -ra MAINTAINER_ARRAY <<< "$MAINTAINERS"
-          for user in "${MAINTAINER_ARRAY[@]}"; do
-            trimmed=$(echo "$user" | xargs)
-            [ "$trimmed" != "none" ] && validate_username_with_name "$trimmed"
-          done
+          echo "Checking for users to validate..."
+          
+          # Validate maintainers if defined
+          if [[ "$MAINTAINERS" != "none" && -n "$MAINTAINERS" ]]; then
+            echo "Validating maintainers..."
+            IFS=',' read -ra MAINTAINER_ARRAY <<< "$MAINTAINERS"
+            for user in "${MAINTAINER_ARRAY[@]}"; do
+              trimmed=$(echo "$user" | xargs)
+              [ -n "$trimmed" ] && validate_username "$trimmed"
+            done
+          else
+            echo "No maintainers to validate"
+          fi
 
-          echo "Validating team members..."
-          IFS=',' read -ra MEMBER_ARRAY <<< "$TEAM_MEMBERS"
-          for user in "${MEMBER_ARRAY[@]}"; do
-            trimmed=$(echo "$user" | xargs)
-            [ "$trimmed" != "none" ] && validate_username_with_name "$trimmed"
-          done
+          # Validate team members if defined
+          if [[ "$TEAM_MEMBERS" != "none" && -n "$TEAM_MEMBERS" ]]; then
+            echo "Validating team members..."
+            IFS=',' read -ra MEMBER_ARRAY <<< "$TEAM_MEMBERS"
+            for user in "${MEMBER_ARRAY[@]}"; do
+              trimmed=$(echo "$user" | xargs)
+              [ -n "$trimmed" ] && validate_username "$trimmed"
+            done
+          else
+            echo "No team members to validate"
+          fi
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           MAINTAINERS: ${{ env.maintainers }}
