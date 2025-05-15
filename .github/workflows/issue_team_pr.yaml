@@ -159,6 +159,13 @@ jobs:
           echo "team_members=$TEAM_MEMBERS" >> "$GITHUB_ENV"
           echo "parent_team=$PARENT_TEAM" >> "$GITHUB_ENV"
 
+      - name: Debug team info
+        run: |
+          echo "Maintainers to validate: $MAINTAINERS"
+          echo "Team members to validate: $TEAM_MEMBERS"
+        env:
+          MAINTAINERS: ${{ env.maintainers }}
+          TEAM_MEMBERS: ${{ env.team_members }}
 
       - name: Validate GitHub usernames
         shell: bash
@@ -177,22 +184,22 @@ jobs:
           }
 
           echo "Validating maintainers..."
-          IFS=',' read -ra MAINTAINER_ARRAY <<< "${maintainers}"
+          IFS=',' read -ra MAINTAINER_ARRAY <<< "$MAINTAINERS"
           for user in "${MAINTAINER_ARRAY[@]}"; do
             trimmed=$(echo "$user" | xargs)
             [ "$trimmed" != "none" ] && validate_username "$trimmed"
           done
 
           echo "Validating team members..."
-          IFS=',' read -ra MEMBER_ARRAY <<< "${team_members}"
+          IFS=',' read -ra MEMBER_ARRAY <<< "$TEAM_MEMBERS"
           for user in "${MEMBER_ARRAY[@]}"; do
             trimmed=$(echo "$user" | xargs)
             [ "$trimmed" != "none" ] && validate_username "$trimmed"
           done
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          maintainers: ${{ github.event.issue.fields.maintainers }}
-          team_members: ${{ github.event.issue.fields.team_members }}
+          MAINTAINERS: ${{ env.maintainers }}
+          TEAM_MEMBERS: ${{ env.team_members }}
 
 
 
