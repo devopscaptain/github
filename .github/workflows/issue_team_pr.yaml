@@ -189,7 +189,7 @@ jobs:
           echo "Checking for users to validate..."
           
           # Validate maintainers if defined
-          if [[ "$MAINTAINERS" != "none" && -n "$MAINTAINERS" ]]; then
+          if [[ "$MAINTAINERS" != "_No response_" && "$MAINTAINERS" != "none" && -n "$MAINTAINERS" ]]; then
             echo "Validating maintainers..."
             IFS=',' read -ra MAINTAINER_ARRAY <<< "$MAINTAINERS"
             for user in "${MAINTAINER_ARRAY[@]}"; do
@@ -201,7 +201,7 @@ jobs:
           fi
 
           # Validate team members if defined
-          if [[ "$TEAM_MEMBERS" != "none" && -n "$TEAM_MEMBERS" ]]; then
+          if [[ "$TEAM_MEMBERS" != "_No response_" && "$TEAM_MEMBERS" != "none" && -n "$TEAM_MEMBERS" ]]; then
             echo "Validating team members..."
             IFS=',' read -ra MEMBER_ARRAY <<< "$TEAM_MEMBERS"
             for user in "${MEMBER_ARRAY[@]}"; do
@@ -215,7 +215,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           MAINTAINERS: ${{ env.maintainers }}
           TEAM_MEMBERS: ${{ env.team_members }}
-
 
 
       - name: Create Pull Request for Team
