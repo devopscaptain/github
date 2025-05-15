@@ -170,7 +170,7 @@ jobs:
         run: sudo apt-get install -y jq
 
       - name: Validate GitHub usernames
-        if: env.maintainers != 'none' || env.team_members != 'none'
+        if: env.maintainers != '_No response_' || env.team_members != '_No response_'
         shell: bash
         run: |
           # Function to validate a GitHub username
