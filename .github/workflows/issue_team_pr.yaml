@@ -173,49 +173,68 @@ jobs:
         if: env.maintainers != '_No response_' || env.team_members != '_No response_'
         shell: bash
         run: |
-          # Function to validate a GitHub username
-          validate_username() {
+          # Function to validate GitHub username format
+          validate_username_format() {
+            local username=$1
+            # GitHub username regex: between 1-39 alphanumeric or hyphen characters
+            # Cannot start or end with hyphen, no consecutive hyphens
+            local username_regex='^[a-zA-Z0-9](?:[a-zA-Z0-9]|-(?=[a-zA-Z0-9])){0,38}$'
+            if [[ ! "$username" =~ $username_regex ]]; then
+              echo "::error::Invalid GitHub username format: '$username'"
+              echo "GitHub usernames must:"
+              echo "- Be 1-39 characters long"
+              echo "- Contain only alphanumeric characters or hyphens"
+              echo "- Not start or end with a hyphen"
+              echo "- Not contain consecutive hyphens"
+              exit 1
+            fi
+          }
+
+          # Function to check if username exists on GitHub
+          validate_username_existence() {
             local username=$1
             response=$(curl -s -H "Authorization: token $GITHUB_TOKEN" "https://api.github.com/users/$username")
             if echo "$response" | grep -q '"login":'; then
               echo "✅ Valid GitHub user: $username"
             else
-              echo "::error::❌ Invalid or non-existent GitHub user: $username"
-              echo "Response: $response"
+              echo "::error::❌ GitHub user does not exist: $username"
+              echo "API Response: $response"
               exit 1
             fi
           }
 
-          echo "Checking for users to validate..."
-          
-          # Validate maintainers if defined
-          if [[ "$MAINTAINERS" != "_No response_" && "$MAINTAINERS" != "none" && -n "$MAINTAINERS" ]]; then
-            echo "Validating maintainers..."
-            IFS=',' read -ra MAINTAINER_ARRAY <<< "$MAINTAINERS"
-            for user in "${MAINTAINER_ARRAY[@]}"; do
-              trimmed=$(echo "$user" | xargs)
-              [ -n "$trimmed" ] && validate_username "$trimmed"
-            done
-          else
-            echo "No maintainers to validate"
-          fi
+          # Main validation logic
+          validate_users() {
+            local user_type=$1
+            local users=$2
+            
+            echo "Processing $user_type..."
+            if [[ "$users" == "_No response_" || "$users" == "none" || -z "$users" ]]; then
+              echo "No $user_type to validate"
+              return
+            fi
 
-          # Validate team members if defined
-          if [[ "$TEAM_MEMBERS" != "_No response_" && "$TEAM_MEMBERS" != "none" && -n "$TEAM_MEMBERS" ]]; then
-            echo "Validating team members..."
-            IFS=',' read -ra MEMBER_ARRAY <<< "$TEAM_MEMBERS"
-            for user in "${MEMBER_ARRAY[@]}"; do
-              trimmed=$(echo "$user" | xargs)
-              [ -n "$trimmed" ] && validate_username "$trimmed"
+            IFS=',' read -ra USER_ARRAY <<< "$users"
+            for user in "${USER_ARRAY[@]}"; do
+              trimmed=$(echo "$user" | xargs)  # Trim whitespace
+              if [ -z "$trimmed" ]; then
+                echo "::warning::Empty username found in $user_type list"
+                continue
+              fi
+              
+              echo "Validating $user_type: '$trimmed'"
+              validate_username_format "$trimmed"
+              validate_username_existence "$trimmed"
             done
-          else
-            echo "No team members to validate"
-          fi
+          }
+
+          # Validate both maintainers and team members
+          validate_users "maintainers" "$MAINTAINERS"
+          validate_users "team members" "$TEAM_MEMBERS"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           MAINTAINERS: ${{ env.maintainers }}
           TEAM_MEMBERS: ${{ env.team_members }}
-
 
       - name: Create Pull Request for Team
         if: steps.classify.outputs.type == 'team'
