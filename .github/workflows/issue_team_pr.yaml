@@ -166,20 +166,30 @@ jobs:
         env:
           MAINTAINERS: ${{ env.maintainers }}
           TEAM_MEMBERS: ${{ env.team_members }}
+      - name: Install jq
+        run: sudo apt-get install -y jq
 
-      - name: Validate GitHub usernames
+      - name: Validate GitHub usernames with full names
         shell: bash
         run: |
-          # Function to validate a GitHub username
-          validate_username() {
+          # Function to validate a GitHub username and get full name
+          validate_username_with_name() {
             local username=$1
             response=$(curl -s -H "Authorization: token $GITHUB_TOKEN" "https://api.github.com/users/$username")
-            if echo "$response" | grep -q '"login":'; then
-              echo "✅ Valid GitHub user: $username"
-            else
+            
+            if ! echo "$response" | grep -q '"login":'; then
               echo "::error::❌ Invalid or non-existent GitHub user: $username"
               echo "Response: $response"
               exit 1
+            fi
+            
+            login=$(echo "$response" | jq -r '.login')
+            name=$(echo "$response" | jq -r '.name // empty')
+            
+            if [ -z "$name" ]; then
+              echo "::warning::⚠️ GitHub user $login exists but has no full name set"
+            else
+              echo "✅ Valid GitHub user: $login (Name: $name)"
             fi
           }
 
@@ -187,14 +197,14 @@ jobs:
           IFS=',' read -ra MAINTAINER_ARRAY <<< "$MAINTAINERS"
           for user in "${MAINTAINER_ARRAY[@]}"; do
             trimmed=$(echo "$user" | xargs)
-            [ "$trimmed" != "none" ] && validate_username "$trimmed"
+            [ "$trimmed" != "none" ] && validate_username_with_name "$trimmed"
           done
 
           echo "Validating team members..."
           IFS=',' read -ra MEMBER_ARRAY <<< "$TEAM_MEMBERS"
           for user in "${MEMBER_ARRAY[@]}"; do
             trimmed=$(echo "$user" | xargs)
-            [ "$trimmed" != "none" ] && validate_username "$trimmed"
+            [ "$trimmed" != "none" ] && validate_username_with_name "$trimmed"
           done
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
