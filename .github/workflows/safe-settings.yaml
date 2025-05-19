@@ -1,0 +1,93 @@
+---
+name: Safe Settings Sync
+on:
+  workflow_dispatch: {}
+  # push:
+  #   branches:
+  #     - main
+  # pull_request:
+  #   paths:
+  #     - safe-settings/**
+  #     - .github/workflows/safe-settings.yaml
+  # schedule:
+  #   - cron: 0 */4 * * *
+  # # -->
+  # workflow_dispatch:
+  #   inputs:
+  #     NOOP:
+  #       description: 'Run in no-op mode'
+  #       required: false
+  #       type: boolean
+  #       default: false
+
+# concurrency:
+#   cancel-in-progress: true
+#   group: >-
+#     ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+
+jobs:
+  safe-settings-sync:
+    runs-on: ubuntu-latest
+    env:
+      SAFE_SETTINGS_VERSION: 2.1.17-rc.2
+      SAFE_SETTINGS_CODE_DIR: .safe-settings-code
+      FULL_SYNC_FROM_REF: ${{ github.ref }}
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683   
+
+      - name: Checkout GitHub Safe-Settings repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          path: ${{ env.SAFE_SETTINGS_CODE_DIR }}
+          ref: ${{ env.SAFE_SETTINGS_VERSION }}
+          repository: github/safe-settings
+
+      - name: Setup Node.js
+        uses: actions/setup-node@3235b876344d2a9aa001b8d1453c930bba69e610
+        with:
+          cache-dependency-path:
+            ${{ env.SAFE_SETTINGS_CODE_DIR }}/package-lock.json
+          cache: npm
+          node-version-file: ${{ env.SAFE_SETTINGS_CODE_DIR }}/.nvmrc
+
+      - name: Install dependencies
+        run: npm install
+        working-directory: ${{ env.SAFE_SETTINGS_CODE_DIR }}
+
+      # -->
+      - name: Set no-op mode flag
+        run: |
+          echo "FULL_SYNC_NOOP=false" >> $GITHUB_ENV
+
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            echo "FULL_SYNC_NOOP=true" >> $GITHUB_ENV
+          fi
+
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            if [[ "${{ inputs.NOOP }}" != "" ]]; then
+              echo "FULL_SYNC_NOOP=${{ inputs.NOOP }}" >> $GITHUB_ENV
+            fi
+          fi
+
+      - name: Run application
+        run: npm run full-sync
+        working-directory: ${{ env.SAFE_SETTINGS_CODE_DIR }}
+        env:
+          ADMIN_REPO: admin
+          APP_ID: ${{ vars.SAFE_SETTINGS_APP_ID }}
+          BLOCK_REPO_RENAME_BY_HUMAN: false
+          CONFIG_PATH: safe-settings
+          DEPLOYMENT_CONFIG_FILE_PATH:
+            ${{ github.workspace }}/safe-settings/deployment.yaml
+          GH_ORG: ${{ vars.SAFE_SETTINGS_GH_ORG }}
+          GITHUB_CLIENT_ID: ${{ vars.SAFE_SETTINGS_GITHUB_CLIENT_ID }}
+          GITHUB_CLIENT_SECRET:
+            ${{ secrets.SAFE_SETTINGS_GITHUB_CLIENT_SECRET }}
+          LOG_LEVEL: debug
+          ENABLE_PR_COMMENT: true
+          CREATE_PR_COMMENT: true
+          PRIVATE_KEY: ${{ secrets.SAFE_SETTINGS_PRIVATE_KEY }}
+          FULL_SYNC_NOP: ${{ env.FULL_SYNC_NOOP }}
+          SETTINGS_FILE_PATH: organisation.yaml
+          FULL_SYNC_FROM_REF: ${{ github.ref }}
