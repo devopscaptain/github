@@ -6,4 +6,4 @@ restrictedRepos:
   exclude:
     - ^OIDC-Authentication$
     - ^eks-github-runner$
-    - ^.github$
+    - ^github$

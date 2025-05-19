@@ -1,6 +1,7 @@
 # https://github.com/github/safe-settings/blob/main-enterprise/docs/sample-settings/suborg.yml
 ---
-
+suborgrepos:
+  - "*"
 
 rulesets:
   - name: Default
