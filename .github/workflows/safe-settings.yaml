@@ -34,17 +34,17 @@ jobs:
       FULL_SYNC_FROM_REF: ${{ github.ref }}
     steps:
       - name: Checkout source
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683   
+        uses:  actions/checkout@v4
 
       - name: Checkout GitHub Safe-Settings repository
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        uses:  actions/checkout@v4
         with:
           path: ${{ env.SAFE_SETTINGS_CODE_DIR }}
           ref: ${{ env.SAFE_SETTINGS_VERSION }}
           repository: github/safe-settings
 
       - name: Setup Node.js
-        uses: actions/setup-node@3235b876344d2a9aa001b8d1453c930bba69e610
+        uses: actions/setup-node@v4
         with:
           cache-dependency-path:
             ${{ env.SAFE_SETTINGS_CODE_DIR }}/package-lock.json
