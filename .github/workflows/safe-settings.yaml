@@ -74,7 +74,7 @@ jobs:
         run: npm run full-sync
         working-directory: ${{ env.SAFE_SETTINGS_CODE_DIR }}
         env:
-          ADMIN_REPO: admin
+          ADMIN_REPO: github
           APP_ID: ${{ vars.SAFE_SETTINGS_APP_ID }}
           BLOCK_REPO_RENAME_BY_HUMAN: false
           CONFIG_PATH: safe-settings
