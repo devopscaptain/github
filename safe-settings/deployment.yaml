@@ -4,6 +4,6 @@ restrictedRepos:
   # these repos are all archived and will cause the GHA to fail
   # https://github.com/github/safe-settings/issues/443
   exclude:
-    - ^OIDC-Authentication$
-    - ^eks-github-runner$
+    # - ^OIDC-Authentication$
+    # - ^eks-github-runner$
     - ^github$
