@@ -86,45 +86,45 @@ rulesets:
       # to a branch that matches this rule after status checks have
       # passed.
  
-      - type: commit_message_pattern
-        parameters:
-          name: test commit_message_pattern
-          # required:
-          #  - operator
-          #  - pattern
-          negate: true
-          operator: starts_with
-          # The operator to use for matching.
-          # - starts_with
-          # - ends_with
-          # - contains
-          # - regex
-          pattern: skip*
-          # The pattern to match with.
+      # - type: commit_message_pattern
+      #   parameters:
+      #     name: test commit_message_pattern
+      #     # required:
+      #     #  - operator
+      #     #  - pattern
+      #     negate: true
+      #     operator: starts_with
+      #     # The operator to use for matching.
+      #     # - starts_with
+      #     # - ends_with
+      #     # - contains
+      #     # - regex
+      #     pattern: skip*
+      #     # The pattern to match with.
 
-      - type: commit_author_email_pattern
-        parameters:
-          name: test commit_author_email_pattern
-          negate: false
-          operator: regex
-          pattern: "^.*@example.com$"
+      # - type: commit_author_email_pattern
+      #   parameters:
+      #     name: test commit_author_email_pattern
+      #     negate: false
+      #     operator: regex
+      #     pattern: "^.*@example.com$"
 
-      - type: committer_email_pattern
-        parameters:
-          name: test committer_email_pattern
-          negate: false
-          operator: regex
-          pattern: "^.*@example.com$"
+      # - type: committer_email_pattern
+      #   parameters:
+      #     name: test committer_email_pattern
+      #     negate: false
+      #     operator: regex
+      #     pattern: "^.*@example.com$"
 
-      - type: branch_name_pattern
-        parameters:
-          name: test branch_name_pattern
-          negate: false
-          operator: regex
-          pattern: ".*\/.*"
+      # - type: branch_name_pattern
+      #   parameters:
+      #     name: test branch_name_pattern
+      #     negate: false
+      #     operator: regex
+      #     pattern: ".*\/.*"
 
-      - type: "tag_name_pattern"
-        parameters:
-          name: test tag_name_pattern
-          negate: false
-          operator: regex
+      # - type: "tag_name_pattern"
+      #   parameters:
+      #     name: test tag_name_pattern
+      #     negate: false
+      #     operator: regex
