@@ -5,38 +5,126 @@ repository:
   allow_auto_merge: false
   
 rulesets:
-  - name: Default
+  - name: Template
+    # The target of the ruleset. Can be one of:
+    # - branch
+    # - tag
     target: branch
+    # The enforcement level of the ruleset. `evaluate` allows admins to test
+    # rules before enforcing them.
+    # - disabled
+    # - active
+    # - evaluate
     enforcement: active
 
+    # The actors that can bypass the rules in this ruleset
+ 
     conditions:
+      # Parameters for a repository ruleset ref name condition
       ref_name:
-        include:
-          - ~DEFAULT_BRANCH
-        exclude: []
+        # Array of ref names or patterns to include. One of these
+        # patterns must match for the condition to pass. Also accepts
+        # `~DEFAULT_BRANCH` to include the default branch or `~ALL` to
+        # include all branches.
+        include: ["~DEFAULT_BRANCH"]
 
+        # Array of ref names or patterns to exclude. The condition
+        # will not pass if any of these patterns match.
+        exclude: ["refs/heads/oldmaster"]
+
+      # This condition only exists at the org level (remove for suborg and repo level rulesets)
+      repository_name:
+        # Array of repository names or patterns to include.
+        # One of these patterns must match for the condition
+        # to pass. Also accepts `~ALL` to include all
+        # repositories.
+        include: ["test*"]
+        # Array of repository names or patterns to exclude. The
+        # condition will not pass if any of these patterns
+        # match.
+        exclude: ["test", "test1"]
+        # Whether renaming of target repositories is
+        # prevented.
+        protected: true
+
+    # Refer to https://docs.github.com/en/rest/orgs/rules#create-an-organization-repository-ruleset
     rules:
+      - type: creation
+      - type: update
+        parameters:
+          # Branch can pull changes from its upstream repository
+          update_allows_fetch_and_merge: true
       - type: deletion
-      - type: non_fast_forward # prevents force pushes
+      - type: required_linear_history
+      - type: required_signatures
 
-  - name: Pull Requests
-    target: branch
-    enforcement: active
+      - type: required_deployments
+        parameters:
+          required_deployment_environments: ["staging"]
 
-
-    conditions:
-      ref_name:
-        include:
-          - ~DEFAULT_BRANCH
-        exclude: []
-
-    rules:
       - type: pull_request
         parameters:
-          allowed_merge_types:
-            - squash
+          # Reviewable commits pushed will dismiss previous pull
+          # request review approvals.
           dismiss_stale_reviews_on_push: true
-          require_code_owner_review: false
-          require_last_push_approval: false
+          # Require an approving review in pull requests that modify
+          # files that have a designated code owner
+          require_code_owner_review: true
+          # Whether the most recent reviewable push must be approved
+          # by someone other than the person who pushed it.
+          require_last_push_approval: true
+          # The number of approving reviews that are required before a
+          # pull request can be merged.
           required_approving_review_count: 1
-          required_review_thread_resolution: false
+          # All conversations on code must be resolved before a pull
+          # request can be merged.
+          required_review_thread_resolution: true
+
+      # Choose which status checks must pass before branches can be merged
+      # into a branch that matches this rule. When enabled, commits must
+      # first be pushed to another branch, then merged or pushed directly
+      # to a branch that matches this rule after status checks have
+      # passed.
+ 
+      - type: commit_message_pattern
+        parameters:
+          name: test commit_message_pattern
+          # required:
+          #  - operator
+          #  - pattern
+          negate: true
+          operator: starts_with
+          # The operator to use for matching.
+          # - starts_with
+          # - ends_with
+          # - contains
+          # - regex
+          pattern: skip*
+          # The pattern to match with.
+
+      - type: commit_author_email_pattern
+        parameters:
+          name: test commit_author_email_pattern
+          negate: false
+          operator: regex
+          pattern: "^.*@example.com$"
+
+      - type: committer_email_pattern
+        parameters:
+          name: test committer_email_pattern
+          negate: false
+          operator: regex
+          pattern: "^.*@example.com$"
+
+      - type: branch_name_pattern
+        parameters:
+          name: test branch_name_pattern
+          negate: false
+          operator: regex
+          pattern: ".*\/.*"
+
+      - type: "tag_name_pattern"
+        parameters:
+          name: test tag_name_pattern
+          negate: false
+          operator: regex
