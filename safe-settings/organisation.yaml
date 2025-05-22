@@ -34,7 +34,7 @@ rulesets:
         # Array of repository names or patterns to exclude. The
         # condition will not pass if any of these patterns
         # match.
-        # exclude: ["github"]
+        exclude: ["github"]
         # Whether renaming of target repositories is
         # prevented.
         protected: true
@@ -60,6 +60,3 @@ rulesets:
           required_review_thread_resolution: true
 
       - type: non_fast_forward
-
-
-      ##############
