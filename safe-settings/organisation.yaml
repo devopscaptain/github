@@ -1,6 +1,6 @@
 ---
 rulesets:
-  - name: Template
+  - name: Orgnization-Ruleset
     # The target of the ruleset. Can be one of:
     # - branch
     # - tag
@@ -34,7 +34,7 @@ rulesets:
         # Array of repository names or patterns to exclude. The
         # condition will not pass if any of these patterns
         # match.
-        exclude: ["admin"]
+        exclude: ["github"]
         # Whether renaming of target repositories is
         # prevented.
         protected: true
