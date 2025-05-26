@@ -182,176 +182,85 @@ jobs:
         if: env.maintainers != '_No response_' || env.team_members != '_No response_'
         shell: bash
         run: |
-          # Function to validate GitHub username format
           validate_username_format() {
             local username=$1
-            # GitHub username regex: between 1-39 alphanumeric or hyphen characters
-            # Cannot start or end with hyphen, no consecutive hyphens
-            # GitHub usernames are case-insensitive but can contain uppercase letters
             local username_regex='^[a-zA-Z0-9][a-zA-Z0-9-]{0,38}$'
             if [[ ! "$username" =~ $username_regex ]]; then
               echo "::error::Invalid GitHub username format: '$username'"
-              echo "GitHub usernames must:"
-              echo "- Be 1-39 characters long"
-              echo "- Contain only alphanumeric characters or hyphens"
-              echo "- Not start or end with a hyphen"
-              echo "- Not contain consecutive hyphens"
               exit 1
             fi
           }
 
-          # Function to check if username exists on GitHub
           validate_username_existence() {
             local username=$1
             response=$(curl -s -H "Authorization: token $GITHUB_TOKEN" "https://api.github.com/users/$username")
             if echo "$response" | grep -q '"login":'; then
-              echo "✅ Valid GitHub user: $username"
+              echo "✅ GitHub user exists: $username"
             else
-              echo "::error::❌ GitHub user does not exist: $username"
-              echo "API Response: $response"
+              echo "::error::GitHub user does not exist: $username"
+              echo "Response: $response"
               exit 1
             fi
           }
 
-          # Function to validate full name format
-          validate_full_name_format() {
-            local full_name=$1
-            # Full name regex: 3-100 characters, letters, spaces, and some punctuation
-            local full_name_regex='^[A-Za-z ,.'\''\\-]{3,100}$'
-            if [[ ! "$full_name" =~ $full_name_regex ]]; then
-              echo "::error::Invalid full name format: '$full_name'"
-              echo "Full names must:"
-              echo "- Be 3-100 characters long"
-              echo "- Contain only letters, spaces, and basic punctuation (,.'-)"
-              exit 1
-            fi
-          }
+          validate_full_name_with_api() {
+            local username=$1
+            local expected_full_name=$2
+            user_info=$(curl -s -H "Authorization: token $GITHUB_TOKEN" "https://api.github.com/users/$username")
+            actual_name=$(echo "$user_info" | jq -r '.name')
 
-          # Function to validate that the number of usernames matches the number of full names
-          validate_count_match() {
-            local user_type=$1
-            local usernames=$2
-            local full_names=$3
-            
-            if [[ "$usernames" == "_No response_" || "$usernames" == "none" || -z "$usernames" ]]; then
-              if [[ "$full_names" != "_No response_" && "$full_names" != "none" && -n "$full_names" ]]; then
-                echo "::error::Full names provided for $user_type but no usernames were specified"
-                exit 1
-              fi
+            if [[ "$actual_name" == "null" || -z "$actual_name" ]]; then
+              echo "::warning::No public full name for '$username'. Skipping name match."
               return
             fi
-            
-            if [[ "$full_names" == "_No response_" || "$full_names" == "none" || -z "$full_names" ]]; then
-              echo "::error::No full names provided for $user_type"
+
+            expected_full_name=$(echo "$expected_full_name" | xargs)
+            actual_name=$(echo "$actual_name" | xargs)
+
+            if [[ "${expected_full_name,,}" != "${actual_name,,}" ]]; then
+              echo "::error::Full name mismatch for '$username': expected '$expected_full_name', found '$actual_name'"
               exit 1
             fi
-            
-            IFS=',' read -ra USERNAME_ARRAY <<< "$usernames"
-            IFS=',' read -ra FULLNAME_ARRAY <<< "$full_names"
-            
-            username_count=${#USERNAME_ARRAY[@]}
-            fullname_count=${#FULLNAME_ARRAY[@]}
-            
-            if [[ $username_count != $fullname_count ]]; then
-              echo "::error::Mismatch between number of $user_type usernames ($username_count) and full names ($fullname_count)"
-              exit 1
-            fi
+
+            echo "✅ Full name matches for '$username'"
           }
 
-          # Function to create a mapping between usernames and full names
-          validate_username_fullname_mapping() {
+          validate_user_block() {
             local user_type=$1
             local usernames=$2
             local full_names=$3
-            
-            echo "Validating $user_type username and full name mapping..."
-            
-            # Create arrays from comma-separated lists
-            IFS=',' read -ra USERNAME_ARRAY <<< "$usernames"
-            IFS=',' read -ra FULLNAME_ARRAY <<< "$full_names"
-            
-            # Check if arrays have the same length (should already be validated by validate_count_match)
-            if [[ ${#USERNAME_ARRAY[@]} != ${#FULLNAME_ARRAY[@]} ]]; then
-              echo "::error::Mismatch between number of usernames and full names"
+
+            if [[ "$usernames" == "_No response_" || "$usernames" == "none" || -z "$usernames" ]]; then
+              echo "No $user_type to validate."
+              return
+            fi
+
+            if [[ "$full_names" == "_No response_" || "$full_names" == "none" || -z "$full_names" ]]; then
+              echo "::error::Full names required for $user_type but missing."
               exit 1
             fi
-            
-            # Create a mapping file for reference
-            echo "# $user_type mapping" > "${user_type}_mapping.txt"
-            
-            # Process each username and full name pair
+
+            IFS=',' read -ra USERNAME_ARRAY <<< "$usernames"
+            IFS=',' read -ra FULLNAME_ARRAY <<< "$full_names"
+
+            if [[ ${#USERNAME_ARRAY[@]} -ne ${#FULLNAME_ARRAY[@]} ]]; then
+              echo "::error::Mismatch in number of $user_type usernames and full names."
+              exit 1
+            fi
+
             for i in "${!USERNAME_ARRAY[@]}"; do
               username=$(echo "${USERNAME_ARRAY[$i]}" | xargs)
               full_name=$(echo "${FULLNAME_ARRAY[$i]}" | xargs)
-              
-              echo "Checking mapping: '$username' -> '$full_name'"
-              
-              # Store the mapping for reference
-              echo "$username: $full_name" >> "${user_type}_mapping.txt"
-              
-              # Verify that this username doesn't appear with a different full name elsewhere
-              # This helps catch duplicated usernames with different full names
-              for j in "${!USERNAME_ARRAY[@]}"; do
-                if [[ $i != $j && "${USERNAME_ARRAY[$i]}" == "${USERNAME_ARRAY[$j]}" ]]; then
-                  other_full_name=$(echo "${FULLNAME_ARRAY[$j]}" | xargs)
-                  if [[ "$full_name" != "$other_full_name" ]]; then
-                    echo "::error::Username '$username' is associated with multiple full names: '$full_name' and '$other_full_name'"
-                    exit 1
-                  fi
-                fi
-              done
+
+              echo "🔍 Validating $user_type: '$username' -> '$full_name'"
+              validate_username_format "$username"
+              validate_username_existence "$username"
+              validate_full_name_with_api "$username" "$full_name"
             done
-            
-            echo "✅ Username and full name mapping validated for $user_type"
           }
 
-          # Main validation logic
-          validate_users() {
-            local user_type=$1
-            local users=$2
-            local full_names=$3
-            
-            echo "Processing $user_type..."
-            if [[ "$users" == "_No response_" || "$users" == "none" || -z "$users" ]]; then
-              echo "No $user_type to validate"
-              return
-            fi
-
-            # Validate count match first
-            validate_count_match "$user_type" "$users" "$full_names"
-            
-            IFS=',' read -ra USER_ARRAY <<< "$users"
-            for user in "${USER_ARRAY[@]}"; do
-              trimmed=$(echo "$user" | xargs)  # Trim whitespace
-              if [ -z "$trimmed" ]; then
-                echo "::warning::Empty username found in $user_type list"
-                continue
-              fi
-              
-              echo "Validating $user_type username: '$trimmed'"
-              validate_username_format "$trimmed"
-              validate_username_existence "$trimmed"
-            done
-            
-            IFS=',' read -ra FULLNAME_ARRAY <<< "$full_names"
-            for full_name in "${FULLNAME_ARRAY[@]}"; do
-              trimmed=$(echo "$full_name" | xargs)  # Trim whitespace
-              if [ -z "$trimmed" ]; then
-                echo "::warning::Empty full name found in $user_type list"
-                continue
-              fi
-              
-              echo "Validating $user_type full name: '$trimmed'"
-              validate_full_name_format "$trimmed"
-            done
-            
-            # Validate the mapping between usernames and full names
-            validate_username_fullname_mapping "$user_type" "$users" "$full_names"
-          }
-
-          # Validate both maintainers and team members
-          validate_users "maintainers" "$MAINTAINERS" "$MAINTAINER_FULL_NAMES"
-          validate_users "team members" "$TEAM_MEMBERS" "$MEMBER_FULL_NAMES"
+          validate_user_block "maintainers" "$MAINTAINERS" "$MAINTAINER_FULL_NAMES"
+          validate_user_block "team members" "$TEAM_MEMBERS" "$MEMBER_FULL_NAMES"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           MAINTAINERS: ${{ env.maintainers }}
