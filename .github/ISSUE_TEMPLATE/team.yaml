@@ -49,6 +49,16 @@ body:
       pattern: "^(@?[a-z0-9_.-]+(/[a-z0-9_.-]+)?)(,\\s*@?[a-z0-9_.-]+(/[a-z0-9_.-]+)?)*$"
 
   - type: input
+    id: maintainer_full_names
+    attributes:
+      label: "Maintainer Full Names (comma-separated)"
+      description: "Enter full names for all maintainers (e.g., John Doe,Jane Smith)"
+      placeholder: "John Doe,Jane Smith"
+    validations:
+      required: true
+      pattern: "^([A-Za-z ,.'-]{3,100})(,\\s*[A-Za-z ,.'-]{3,100})*$"
+
+  - type: input
     id: team_members
     attributes:
       label: "Team Members (comma-separated)"
@@ -59,10 +69,10 @@ body:
       pattern: "^(@?[a-z0-9_.-]+(/[a-z0-9_.-]+)?)(,\\s*@?[a-z0-9_.-]+(/[a-z0-9_.-]+)?)*$"
 
   - type: input
-    id: full_names
+    id: member_full_names
     attributes:
-      label: "GitHub User Full Names (comma-separated)"
-      description: "Enter full names for all maintainers and members (e.g., John Doe,Jane Smith)"
+      label: "Team Member Full Names (comma-separated)"
+      description: "Enter full names for all team members (e.g., John Doe,Jane Smith)"
       placeholder: "John Doe,Jane Smith"
     validations:
       required: true

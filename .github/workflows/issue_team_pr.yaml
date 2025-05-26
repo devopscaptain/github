@@ -130,14 +130,18 @@ jobs:
           VISIBILITY=$(echo "$ISSUE_BODY" | awk '/^### Visibility$/{getline; getline; print}' | sed 's/[`]//g' | xargs)
           PURPOSE=$(echo "$ISSUE_BODY" | awk '/^### Purpose$/{getline; getline; print}' | sed 's/[`]//g' | xargs)
           MAINTAINERS=$(echo "$ISSUE_BODY" | awk '/^### Maintainers \(comma-separated\)$/{getline; getline; print}' | sed 's/[`]//g' | xargs)
+          MAINTAINER_FULL_NAMES=$(echo "$ISSUE_BODY" | awk '/^### Maintainer Full Names \(comma-separated\)$/{getline; getline; print}' | sed 's/[`]//g' | xargs)
           TEAM_MEMBERS=$(echo "$ISSUE_BODY" | awk '/^### Team Members \(comma-separated\)$/{getline; getline; print}' | sed 's/[`]//g' | xargs)
+          MEMBER_FULL_NAMES=$(echo "$ISSUE_BODY" | awk '/^### Team Member Full Names \(comma-separated\)$/{getline; getline; print}' | sed 's/[`]//g' | xargs)
 
           echo "Extracted Values:"
           echo "Team Name: '$TEAM_NAME'"
           echo "Visibility: '$VISIBILITY'"
           echo "Purpose: '$PURPOSE'"
           echo "Maintainers: '$MAINTAINERS'"
+          echo "Maintainer Full Names: '$MAINTAINER_FULL_NAMES'"
           echo "Team Members: '$TEAM_MEMBERS'"
+          echo "Member Full Names: '$MEMBER_FULL_NAMES'"
           echo "parent_team=$PARENT_TEAM" >> "$GITHUB_ENV"
 
           if [[ ! "$TEAM_NAME" =~ ^TEAM-[a-zA-Z0-9_-]{1,20}$ ]]; then
@@ -149,6 +153,8 @@ jobs:
           PURPOSE=${PURPOSE:-Team created via automation}
           MAINTAINERS=${MAINTAINERS:-none}
           TEAM_MEMBERS=${TEAM_MEMBERS:-none}
+          MAINTAINER_FULL_NAMES=${MAINTAINER_FULL_NAMES:-none}
+          MEMBER_FULL_NAMES=${MEMBER_FULL_NAMES:-none}
           PARENT_TEAM=${PARENT_TEAM:-none}
 
           echo "$TEAM_NAME" > team-name.txt
@@ -156,20 +162,23 @@ jobs:
           echo "visibility=$VISIBILITY" >> "$GITHUB_ENV"
           echo "purpose=$PURPOSE" >> "$GITHUB_ENV"
           echo "maintainers=$MAINTAINERS" >> "$GITHUB_ENV"
+          echo "maintainer_full_names=$MAINTAINER_FULL_NAMES" >> "$GITHUB_ENV"
           echo "team_members=$TEAM_MEMBERS" >> "$GITHUB_ENV"
+          echo "member_full_names=$MEMBER_FULL_NAMES" >> "$GITHUB_ENV"
           echo "parent_team=$PARENT_TEAM" >> "$GITHUB_ENV"
 
       - name: Debug team info
         run: |
           echo "Maintainers to validate: $MAINTAINERS"
           echo "Team members to validate: $TEAM_MEMBERS"
+          echo "Maintainer full names: $MAINTAINER_FULL_NAMES"
+          echo "Member full names: $MEMBER_FULL_NAMES"
         env:
           MAINTAINERS: ${{ env.maintainers }}
           TEAM_MEMBERS: ${{ env.team_members }}
-      - name: Install jq
-        run: sudo apt-get install -y jq
-
-      - name: Validate GitHub usernames
+          MAINTAINER_FULL_NAMES: ${{ env.maintainer_full_names }}
+          MEMBER_FULL_NAMES: ${{ env.member_full_names }}
+      - name: Validate GitHub usernames and full names
         if: env.maintainers != '_No response_' || env.team_members != '_No response_'
         shell: bash
         run: |
@@ -203,10 +212,57 @@ jobs:
             fi
           }
 
+          # Function to validate full name format
+          validate_full_name_format() {
+            local full_name=$1
+            # Full name regex: 3-100 characters, letters, spaces, and some punctuation
+            local full_name_regex='^[A-Za-z ,.'\''\\-]{3,100}$'
+            if [[ ! "$full_name" =~ $full_name_regex ]]; then
+              echo "::error::Invalid full name format: '$full_name'"
+              echo "Full names must:"
+              echo "- Be 3-100 characters long"
+              echo "- Contain only letters, spaces, and basic punctuation (,.'-)"
+              exit 1
+            fi
+          }
+
+          # Function to validate that the number of usernames matches the number of full names
+          validate_count_match() {
+            local user_type=$1
+            local usernames=$2
+            local full_names=$3
+            
+            if [[ "$usernames" == "_No response_" || "$usernames" == "none" || -z "$usernames" ]]; then
+              if [[ "$full_names" != "_No response_" && "$full_names" != "none" && -n "$full_names" ]]; then
+                echo "::error::Full names provided for $user_type but no usernames were specified"
+                exit 1
+              fi
+              return
+            fi
+            
+      - name: Install jq
+        run: sudo apt-get install -y jq            if [[ "$full_names" == "_No response_" || "$full_names" == "none" || -z "$full_names" ]]; then
+              echo "::error::No full names provided for $user_type"
+              exit 1
+            fi
+            
+            IFS=',' read -ra USERNAME_ARRAY <<< "$usernames"
+            IFS=',' read -ra FULLNAME_ARRAY <<< "$full_names"
+            
+            username_count=${#USERNAME_ARRAY[@]}
+            fullname_count=${#FULLNAME_ARRAY[@]}
+            
+            if [[ $username_count != $fullname_count ]]; then
+              echo "::error::Mismatch between number of $user_type usernames ($username_count) and full names ($fullname_count)"
+              exit 1
+            fi
+          }
+
           # Main validation logic
           validate_users() {
             local user_type=$1
             local users=$2
+            local full_names=$3
             
             echo "Processing $user_type..."
             if [[ "$users" == "_No response_" || "$users" == "none" || -z "$users" ]]; then
@@ -214,6 +270,9 @@ jobs:
               return
             fi
 
+            # Validate count match first
+            validate_count_match "$user_type" "$users" "$full_names"
+            
             IFS=',' read -ra USER_ARRAY <<< "$users"
             for user in "${USER_ARRAY[@]}"; do
               trimmed=$(echo "$user" | xargs)  # Trim whitespace
@@ -222,19 +281,33 @@ jobs:
                 continue
               fi
               
-              echo "Validating $user_type: '$trimmed'"
+              echo "Validating $user_type username: '$trimmed'"
               validate_username_format "$trimmed"
               validate_username_existence "$trimmed"
+            done
+            
+            IFS=',' read -ra FULLNAME_ARRAY <<< "$full_names"
+            for full_name in "${FULLNAME_ARRAY[@]}"; do
+              trimmed=$(echo "$full_name" | xargs)  # Trim whitespace
+              if [ -z "$trimmed" ]; then
+                echo "::warning::Empty full name found in $user_type list"
+                continue
+              fi
+              
+              echo "Validating $user_type full name: '$trimmed'"
+              validate_full_name_format "$trimmed"
             done
           }
 
           # Validate both maintainers and team members
-          validate_users "maintainers" "$MAINTAINERS"
-          validate_users "team members" "$TEAM_MEMBERS"
+          validate_users "maintainers" "$MAINTAINERS" "$MAINTAINER_FULL_NAMES"
+          validate_users "team members" "$TEAM_MEMBERS" "$MEMBER_FULL_NAMES"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           MAINTAINERS: ${{ env.maintainers }}
           TEAM_MEMBERS: ${{ env.team_members }}
+          MAINTAINER_FULL_NAMES: ${{ env.maintainer_full_names }}
+          MEMBER_FULL_NAMES: ${{ env.member_full_names }}
 
       - name: Create Pull Request for Team
         if: steps.classify.outputs.type == 'team'
@@ -250,7 +323,9 @@ jobs:
             **Visibility:** ${{ env.visibility }}
             **Purpose:** ${{ env.purpose }}
             **Maintainers:** ${{ env.maintainers }}
+            **Maintainer Full Names:** ${{ env.maintainer_full_names }}
             **Team Members:** ${{ env.team_members }}
+            **Team Member Full Names:** ${{ env.member_full_names }}
 
             Generated from issue #${{ github.event.issue.number }}
           branch: "team-request/${{ github.event.issue.number }}"
