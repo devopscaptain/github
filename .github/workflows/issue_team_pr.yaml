@@ -258,7 +258,52 @@ jobs:
             fi
           }
 
-          # Main validation logic
+          # Function to create a mapping between usernames and full names
+          validate_username_fullname_mapping() {
+            local user_type=$1
+            local usernames=$2
+            local full_names=$3
+            
+            echo "Validating $user_type username and full name mapping..."
+            
+            # Create arrays from comma-separated lists
+            IFS=',' read -ra USERNAME_ARRAY <<< "$usernames"
+            IFS=',' read -ra FULLNAME_ARRAY <<< "$full_names"
+            
+            # Check if arrays have the same length (should already be validated by validate_count_match)
+            if [[ ${#USERNAME_ARRAY[@]} != ${#FULLNAME_ARRAY[@]} ]]; then
+              echo "::error::Mismatch between number of usernames and full names"
+              exit 1
+            fi
+            
+            # Create a mapping file for reference
+            echo "# $user_type mapping" > "${user_type}_mapping.txt"
+            
+            # Process each username and full name pair
+            for i in "${!USERNAME_ARRAY[@]}"; do
+              username=$(echo "${USERNAME_ARRAY[$i]}" | xargs)
+              full_name=$(echo "${FULLNAME_ARRAY[$i]}" | xargs)
+              
+              echo "Checking mapping: '$username' -> '$full_name'"
+              
+              # Store the mapping for reference
+              echo "$username: $full_name" >> "${user_type}_mapping.txt"
+              
+              # Verify that this username doesn't appear with a different full name elsewhere
+              # This helps catch duplicated usernames with different full names
+              for j in "${!USERNAME_ARRAY[@]}"; do
+                if [[ $i != $j && "${USERNAME_ARRAY[$i]}" == "${USERNAME_ARRAY[$j]}" ]]; then
+                  other_full_name=$(echo "${FULLNAME_ARRAY[$j]}" | xargs)
+                  if [[ "$full_name" != "$other_full_name" ]]; then
+                    echo "::error::Username '$username' is associated with multiple full names: '$full_name' and '$other_full_name'"
+                    exit 1
+                  fi
+                fi
+              done
+            done
+            
+            echo "✅ Username and full name mapping validated for $user_type"
+          }          # Main validation logic
           validate_users() {
             local user_type=$1
             local users=$2
@@ -288,6 +333,18 @@ jobs:
             
             IFS=',' read -ra FULLNAME_ARRAY <<< "$full_names"
             for full_name in "${FULLNAME_ARRAY[@]}"; do
+              trimmed=$(echo "$full_name" | xargs)  # Trim whitespace
+              if [ -z "$trimmed" ]; then
+                echo "::warning::Empty full name found in $user_type list"
+                continue
+              fi
+              
+              echo "Validating $user_type full name: '$trimmed'"
+              validate_full_name_format "$trimmed"
+            done
+            
+            # Validate the mapping between usernames and full names
+            validate_username_fullname_mapping "$user_type" "$users" "$full_names"
               trimmed=$(echo "$full_name" | xargs)  # Trim whitespace
               if [ -z "$trimmed" ]; then
                 echo "::warning::Empty full name found in $user_type list"
@@ -332,6 +389,8 @@ jobs:
           labels: "team-creation"
           paths: |
             team-name.txt
+            maintainers_mapping.txt
+            team_members_mapping.txt
 
 
 
