@@ -347,15 +347,6 @@ jobs:
             
             # Validate the mapping between usernames and full names
             validate_username_fullname_mapping "$user_type" "$users" "$full_names"
-              trimmed=$(echo "$full_name" | xargs)  # Trim whitespace
-              if [ -z "$trimmed" ]; then
-                echo "::warning::Empty full name found in $user_type list"
-                continue
-              fi
-              
-              echo "Validating $user_type full name: '$trimmed'"
-              validate_full_name_format "$trimmed"
-            done
           }
 
           # Validate both maintainers and team members
