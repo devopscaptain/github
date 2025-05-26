@@ -303,7 +303,9 @@ jobs:
             done
             
             echo "✅ Username and full name mapping validated for $user_type"
-          }          # Main validation logic
+          }
+
+          # Main validation logic
           validate_users() {
             local user_type=$1
             local users=$2
