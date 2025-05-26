@@ -240,8 +240,7 @@ jobs:
               return
             fi
             
-      - name: Install jq
-        run: sudo apt-get install -y jq            if [[ "$full_names" == "_No response_" || "$full_names" == "none" || -z "$full_names" ]]; then
+            if [[ "$full_names" == "_No response_" || "$full_names" == "none" || -z "$full_names" ]]; then
               echo "::error::No full names provided for $user_type"
               exit 1
             fi
