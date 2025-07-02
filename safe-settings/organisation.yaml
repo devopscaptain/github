@@ -14,7 +14,7 @@ rulesets:
       repository_name:
         # repositories.
         include: ["~ALL"]
-        exclude: ["admin", "OIDC-Authentication"]
+        exclude: ["OIDC-Authentication"]
         # Whether renaming of target repositories is
         # prevented.
         protected: true
@@ -41,7 +41,7 @@ rulesets:
 
         # Array of ref names or patterns to exclude. The condition
         # will not pass if any of these patterns match.
-        exclude: ["admin", "OIDC-Authentication"]
+        exclude: ["OIDC-Authentication"]
 
       # This condition only exists at the org level (remove for suborg and repo level rulesets)
       repository_name:
