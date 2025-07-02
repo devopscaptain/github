@@ -1,5 +1,24 @@
 ---
 rulesets:
+  - name: Template
+    # The target of the ruleset. Can be one of:
+    # - branch
+    # - tag
+    target: branch
+    enforcement: active
+    conditions:
+      ref_name:
+        include: ["~DEFAULT_BRANCH"]
+        exclude: []
+      # This condition only exists at the org level (remove for suborg and repo level rulesets)
+      repository_name:
+        # repositories.
+        include: ["~ALL"]
+        exclude: ["admin", "OIDC-Authentication"]
+        # Whether renaming of target repositories is
+        # prevented.
+        protected: true
+
   - name: Orgnization-Ruleset
     # The target of the ruleset. Can be one of:
     # - branch
@@ -22,7 +41,7 @@ rulesets:
 
         # Array of ref names or patterns to exclude. The condition
         # will not pass if any of these patterns match.
-        exclude: []
+        exclude: ["admin", "OIDC-Authentication"]
 
       # This condition only exists at the org level (remove for suborg and repo level rulesets)
       repository_name:
