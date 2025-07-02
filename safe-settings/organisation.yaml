@@ -14,7 +14,7 @@ rulesets:
       repository_name:
         # repositories.
         include: ["~ALL"]
-        exclude: [""]
+        exclude: []
         # Whether renaming of target repositories is
         # prevented.
         protected: true
