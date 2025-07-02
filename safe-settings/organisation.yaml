@@ -14,7 +14,7 @@ rulesets:
       repository_name:
         # repositories.
         include: ["~ALL"]
-        exclude: ["OIDC-Authentication"]
+        exclude: ["testing-repo"]
         # Whether renaming of target repositories is
         # prevented.
         protected: true
