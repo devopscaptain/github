@@ -14,49 +14,11 @@ rulesets:
       repository_name:
         # repositories.
         include: ["~ALL"]
-        exclude: ["testing-repo"]
+        exclude: [""]
         # Whether renaming of target repositories is
         # prevented.
         protected: true
 
-  - name: Orgnization-Ruleset
-    # The target of the ruleset. Can be one of:
-    # - branch
-    # - tag
-    target: branch
-    # The enforcement level of the ruleset. `evaluate` allows admins to test
-    # rules before enforcing them.
-    # - disabled
-    # - active
-    # - evaluate
-    enforcement: active
-###
-    conditions:
-      ref_name:
-        # Array of ref names or patterns to include. One of these
-        # patterns must match for the condition to pass. Also accepts
-        # `~DEFAULT_BRANCH` to include the default branch or `~ALL` to
-        # include all branches.
-        include: ["~DEFAULT_BRANCH"]
-
-        # Array of ref names or patterns to exclude. The condition
-        # will not pass if any of these patterns match.
-        exclude: ["OIDC-Authentication"]
-
-      # This condition only exists at the org level (remove for suborg and repo level rulesets)
-      repository_name:
-        # Array of repository names or patterns to include.
-        # One of these patterns must match for the condition
-        # to pass. Also accepts `~ALL` to include all
-        # repositories.
-        include: ["~ALL"]
-        # Array of repository names or patterns to exclude. The
-        # condition will not pass if any of these patterns
-        # match.
-        exclude: ["github"]
-        # Whether renaming of target repositories is
-        # prevented.
-        protected: true
 
     # Refer to https://docs.github.com/en/rest/orgs/rules#create-an-organization-repository-ruleset
     rules:
