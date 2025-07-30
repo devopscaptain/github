@@ -41,3 +41,6 @@ rulesets:
           required_review_thread_resolution: true
 
       - type: non_fast_forward
+custom_properties:
+  - name: test
+    value: test     
